@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Timetables & Schedules - RouteReady Campus | MRECW</title>
+  <link rel="stylesheet" href="assets/css/design-system.css">
+  <link rel="stylesheet" href="assets/css/components.css">
+  <link rel="stylesheet" href="assets/css/pages.css">
+</head>
+<body>
+
+  <div id="navbar-placeholder"></div>
+
+  <main class="content-container">
+
+    <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: var(--space-6); flex-wrap: wrap; gap: var(--space-4);">
+      <div>
+        <div class="badge badge-accent">Official Schedules</div>
+        <h1 style="font-size: var(--font-size-3xl); margin-top: var(--space-1);">Route Timetables & Schedules</h1>
+        <p style="color: var(--text-muted); font-size: var(--font-size-sm);">
+          Detailed stop-level departure schedules and printable PDF timetables for MRECW routes.
+        </p>
+      </div>
+      <div>
+        <button onclick="downloadPDF()" class="btn btn-primary" id="download-pdf-btn">
+          📄 Download Printable PDF
+        </button>
+      </div>
+    </div>
+
+    <!-- Selectors Card -->
+    <div class="card" style="margin-bottom: var(--space-6);">
+      <div class="card-body">
+        <div style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: var(--space-4); align-items: flex-end;">
+          <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label" for="route-selector">Select Bus Route</label>
+            <select id="route-selector" class="form-select" onchange="handleRouteChange()">
+              <option value="">Loading routes...</option>
+            </select>
+          </div>
+
+          <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label" for="day-selector">Service Calendar / Day</label>
+            <select id="day-selector" class="form-select" onchange="handleDayChange()">
+              <option value="All Weekdays (Mon - Fri)">All Weekdays (Mon - Fri)</option>
+              <option value="Special Examination Schedule">Special Exam Schedule (4:45 PM)</option>
+              <option value="Saturday Special Classes">Saturday Special Classes</option>
+            </select>
+          </div>
+
+          <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label" for="filter-stops">Filter Stops</label>
+            <input type="text" id="filter-stops" class="form-input" placeholder="Type to filter..." oninput="filterTable()">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Route Summary Header -->
+    <div id="route-summary-card" class="card" style="margin-bottom: var(--space-6); display: none;">
+      <div class="card-body">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: var(--space-4);">
+          <div>
+            <div style="font-size: 11px; text-transform: uppercase; color: var(--text-muted); font-weight: 700;">Active Route Selection</div>
+            <div id="summary-title" style="font-size: var(--font-size-xl); font-weight: 800; color: var(--color-primary);"></div>
+            <div id="summary-route-path" style="font-size: var(--font-size-sm); color: var(--text-muted); margin-top: 2px;"></div>
+          </div>
+          <div style="display: flex; gap: var(--space-4); text-align: right;">
+            <div>
+              <div style="font-size: 10px; text-transform: uppercase; color: var(--text-muted);">Trip Departure</div>
+              <div id="summary-departure" style="font-weight: 700; font-size: var(--font-size-base); color: var(--color-accent);">07:30 AM</div>
+            </div>
+            <div>
+              <div style="font-size: 10px; text-transform: uppercase; color: var(--text-muted);">Campus Arrival</div>
+              <div id="summary-arrival" style="font-weight: 700; font-size: var(--font-size-base); color: var(--color-primary);">08:15 AM</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Timetable Data Table -->
+    <div class="table-container">
+      <table class="table" id="timetable-table">
+        <thead>
+          <tr>
+            <th style="width: 80px;">Seq</th>
+            <th>Stop Name</th>
+            <th>Landmark / Boarding Location</th>
+            <th>Scheduled Time Offset</th>
+            <th>Features</th>
+          </tr>
+        </thead>
+        <tbody id="timetable-tbody">
+          <tr>
+            <td colspan="5" style="text-align: center; padding: var(--space-8);">
+              <div class="spinner"></div>
+              <p style="margin-top: var(--space-2); color: var(--text-muted);">Loading timetable schedule...</p>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+  </main>
+
+  <!-- Scripts -->
+  <script src="assets/js/config.js"></script>
+  <script src="assets/js/theme.js"></script>
+  <script src="assets/js/auth.js"></script>
+  <script src="assets/js/api.js"></script>
+  <script src="assets/js/components.js"></script>
+  <script src="assets/js/pdf-service.js"></script>
+
+  <script>
+    let allRoutes = [];
+    let selectedRouteDetail = null;
+
+    document.addEventListener('DOMContentLoaded', async () => {
+      UI.renderNavbar('timetable');
+
+      try {
+        const res = await API.get('/routes');
+        allRoutes = res.routes || [];
+
+        const selector = document.getElementById('route-selector');
+        selector.innerHTML = '';
+
+        allRoutes.forEach(r => {
+          const opt = document.createElement('option');
+          opt.value = r.id;
+          opt.textContent = `${r.route_number}: ${r.name}`;
+          selector.appendChild(opt);
+        });
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const preselected = urlParams.get('route');
+
+        if (preselected && allRoutes.some(r => r.id === preselected)) {
+          selector.value = preselected;
+        }
+
+        handleRouteChange();
+      } catch (err) {
+        document.getElementById('timetable-tbody').innerHTML = `
+          <tr><td colspan="5" style="text-align: center; color: var(--color-danger); padding: var(--space-6);">
+            Failed to load routes: ${err.message}
+          </td></tr>
+        `;
+      }
+    });
+
+    async function handleRouteChange() {
+      const routeId = document.getElementById('route-selector').value;
+      if (!routeId) return;
+
+      const tbody = document.getElementById('timetable-tbody');
+      tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: var(--space-8);"><div class="spinner"></div></td></tr>';
+
+      try {
+        const res = await API.get(`/routes/${routeId}`);
+        selectedRouteDetail = res.route;
+        renderSummary(selectedRouteDetail);
+        renderTable(selectedRouteDetail.stops || []);
+      } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--color-danger);">${err.message}</td></tr>`;
+      }
+    }
+
+    function renderSummary(r) {
+      const summaryCard = document.getElementById('route-summary-card');
+      summaryCard.style.display = 'block';
+
+      document.getElementById('summary-title').innerText = `${r.route_number}: ${r.name}`;
+      document.getElementById('summary-route-path').innerText = `${r.origin_label} ➔ ${r.destination_label} (${r.estimated_duration_minutes} mins total duration)`;
+      document.getElementById('summary-departure').innerText = r.departure_time || '07:30 AM';
+      document.getElementById('summary-arrival').innerText = r.arrival_time || '08:15 AM';
+    }
+
+    function renderTable(stops) {
+      const tbody = document.getElementById('timetable-tbody');
+
+      if (!stops || stops.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="5" style="text-align: center; padding: var(--space-8); color: var(--text-muted);">
+              No timetable stops registered for this route.
+            </td>
+          </tr>
+        `;
+        return;
+      }
+
+      tbody.innerHTML = stops.map((s, idx) => {
+        const isDestination = idx === stops.length - 1;
+        return `
+          <tr class="stop-row" data-name="${s.name.toLowerCase()}" data-landmark="${(s.address_label || '').toLowerCase()}">
+            <td style="font-weight: 700; color: var(--color-primary);">#${s.sequence || idx + 1}</td>
+            <td style="font-weight: 600;">
+              ${s.name} ${isDestination ? '<span class="badge badge-accent" style="margin-left: 6px;">Campus Hub</span>' : ''}
+            </td>
+            <td style="color: var(--text-muted);">${s.address_label || s.description || '-'}</td>
+            <td style="font-weight: 600; color: var(--color-accent);">
+              +${s.scheduled_arrival_offset_minutes} mins from start
+            </td>
+            <td>
+              ${s.is_accessible ? '<span class="badge badge-success">♿ Accessible</span>' : '-'}
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function filterTable() {
+      const q = document.getElementById('filter-stops').value.trim().toLowerCase();
+      const rows = document.querySelectorAll('.stop-row');
+
+      rows.forEach(row => {
+        const name = row.getAttribute('data-name');
+        const landmark = row.getAttribute('data-landmark');
+        if (name.includes(q) || landmark.includes(q)) {
+          row.style.display = '';
+        } else {
+          row.style.display = 'none';
+        }
+      });
+    }
+
+    function handleDayChange() {
+      // Re-trigger summary or notify
+      showToast('Timetable updated for selected calendar', 'info');
+    }
+
+    function downloadPDF() {
+      if (!selectedRouteDetail) {
+        alert('Please select a route first.');
+        return;
+      }
+      const day = document.getElementById('day-selector').value;
+      PDFService.downloadRouteTimetable(selectedRouteDetail, day);
+    }
+  </script>
+</body>
+</html>
+

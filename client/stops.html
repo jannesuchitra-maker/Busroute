@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Stop Explorer & Nearest Stop - RouteReady Campus | MRECW</title>
+  <link rel="stylesheet" href="assets/css/design-system.css">
+  <link rel="stylesheet" href="assets/css/components.css">
+  <link rel="stylesheet" href="assets/css/pages.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+</head>
+<body>
+
+  <div id="navbar-placeholder"></div>
+
+  <main class="content-container">
+
+    <!-- Header -->
+    <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: var(--space-6); flex-wrap: wrap; gap: var(--space-4);">
+      <div>
+        <div class="badge badge-accent">Boarding Points & Landmarks</div>
+        <h1 style="font-size: var(--font-size-3xl); margin-top: var(--space-1);">Explore College Bus Stops</h1>
+        <p style="color: var(--text-muted); font-size: var(--font-size-sm);">
+          Find authorized boarding stops near you and see which college bus routes serve each location.
+        </p>
+      </div>
+      <div>
+        <button onclick="requestUserLocation()" class="btn btn-accent btn-sm" id="geo-btn">
+          📍 Find Nearest Stop (Use My Location)
+        </button>
+      </div>
+    </div>
+
+    <!-- Geolocation Permission & Status Notice -->
+    <div id="geo-notice" style="display: none; margin-bottom: var(--space-4);"></div>
+
+    <!-- Search & Filter Controls -->
+    <div class="card" style="margin-bottom: var(--space-6);">
+      <div class="card-body" style="padding: var(--space-4);">
+        <div style="display: flex; gap: var(--space-3); align-items: center;">
+          <input type="text" id="stop-search-input" class="form-input" placeholder="Search by stop name or landmark (e.g. JNTU, Suchitra, Bowenpally, Nizampet)..." oninput="debounceSearch()">
+          <button onclick="loadStops()" class="btn btn-primary">Search</button>
+          <button onclick="resetSearch()" class="btn btn-outline" title="Reset">✕</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Split View: Stop Cards on Left, Map on Right -->
+    <div class="grid-2" style="align-items: start;">
+      
+      <!-- Stops List Container -->
+      <div id="stops-list-container" style="display: flex; flex-direction: column; gap: var(--space-4);">
+        <div class="empty-state">
+          <div class="spinner"></div>
+          <p style="margin-top: var(--space-2);">Loading college stops...</p>
+        </div>
+      </div>
+
+      <!-- Map Panel -->
+      <div class="card" style="position: sticky; top: calc(var(--topbar-height) + 20px);">
+        <div class="card-header">
+          <h2 style="font-size: var(--font-size-base);">📍 College Stops Map</h2>
+          <span class="badge badge-accent" id="stops-count-badge">0 Stops</span>
+        </div>
+        <div class="card-body" style="padding: 0;">
+          <div id="stops-map" class="map-panel" style="border: none; border-radius: 0; height: 560px;"></div>
+        </div>
+        <div class="card-footer" style="font-size: var(--font-size-xs); color: var(--text-muted);">
+          Click any pin on the map to view served routes.
+        </div>
+      </div>
+
+    </div>
+
+  </main>
+
+  <!-- Scripts -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <script src="assets/js/config.js"></script>
+  <script src="assets/js/theme.js"></script>
+  <script src="assets/js/auth.js"></script>
+  <script src="assets/js/api.js"></script>
+  <script src="assets/js/components.js"></script>
+  <script src="assets/js/map-service.js"></script>
+
+  <script>
+    let mapInstance = null;
+    let stopMarkers = [];
+    let userMarker = null;
+    let userCoords = null;
+    let searchDebounce = null;
+
+    document.addEventListener('DOMContentLoaded', () => {
+      UI.renderNavbar('stops');
+      initMap();
+      loadStops();
+    });
+
+    function initMap() {
+      mapInstance = MapService.createMap('stops-map', { zoom: 11 });
+      // Add MRECW Campus Gate pin
+      L.marker(MapService.MRECW_COORDS, { icon: MapService.getCampusIcon() })
+        .addTo(mapInstance)
+        .bindPopup('<strong>MRECW Campus Gate</strong><br>Maisammaguda (Destination Hub)');
+    }
+
+    async function loadStops() {
+      const q = document.getElementById('stop-search-input').value.trim();
+      const container = document.getElementById('stops-list-container');
+      const badge = document.getElementById('stops-count-badge');
+
+      container.innerHTML = '<div class="empty-state"><div class="spinner"></div><p style="margin-top:var(--space-2);">Loading stops...</p></div>';
+
+      const params = new URLSearchParams();
+      if (q) params.set('q', q);
+      if (userCoords) {
+        params.set('lat', userCoords.latitude);
+        params.set('lng', userCoords.longitude);
+      }
+
+      try {
+        const res = await API.get(`/stops?${params.toString()}`);
+        const stops = res.stops || [];
+
+        badge.innerText = `${stops.length} Stops`;
+
+        // Clear existing markers
+        stopMarkers.forEach(m => m.remove());
+        stopMarkers = [];
+
+        if (stops.length === 0) {
+          container.innerHTML = `
+            <div class="card empty-state">
+              <div class="empty-state-icon">📍</div>
+              <div class="empty-state-title">No stops found</div>
+              <p>Try searching with another landmark or clearing filters.</p>
+            </div>
+          `;
+          return;
+        }
+
+        // Render stop markers on map
+        stops.forEach((s, idx) => {
+          if (s.latitude && s.longitude) {
+            const m = L.marker([s.latitude, s.longitude], {
+              icon: MapService.getStopIcon(idx + 1)
+            }).addTo(mapInstance);
+
+            m.bindPopup(`
+              <div style="min-width: 160px;">
+                <div style="font-weight: 700; font-size: 14px;">${s.name}</div>
+                <div style="font-size: 12px; color: #64748B;">${s.address_label || s.description || ''}</div>
+                ${s.distance_km !== undefined ? `<div style="font-size: 11px; color: #00A896; margin-top: 4px;">📍 ~${s.distance_km} km away</div>` : ''}
+              </div>
+            `);
+            stopMarkers.push(m);
+          }
+        });
+
+        // Render Cards
+        container.innerHTML = stops.map((s, idx) => {
+          const routes = s.routes || [];
+
+          return `
+            <div class="card card-hover" id="stop-card-${s.id}">
+              <div class="card-header">
+                <div>
+                  <span class="badge badge-accent">#${idx + 1}</span>
+                  <span style="font-weight: 700; font-size: var(--font-size-base); margin-left: var(--space-2);">${s.name}</span>
+                </div>
+                <div>
+                  ${s.is_accessible ? '<span class="badge badge-success">♿ Accessible</span>' : ''}
+                </div>
+              </div>
+              <div class="card-body">
+                <p style="font-size: var(--font-size-xs); color: var(--text-muted); margin-bottom: var(--space-3);">
+                  📍 ${s.address_label || s.description || 'College Bus Boarding Point'}
+                </p>
+
+                ${s.distance_km !== undefined ? `
+                  <div style="display: flex; gap: var(--space-3); background-color: var(--color-accent-subtle); padding: var(--space-2) var(--space-3); border-radius: var(--radius-md); font-size: var(--font-size-xs); color: var(--color-accent); font-weight: 600; margin-bottom: var(--space-3);">
+                    <span>📍 Proximity: <strong>${s.distance_km} km</strong> (${s.distance_meters}m straight-line)</span>
+                    <span>🚶 Est. Walk: <strong>~${s.estimated_walk_minutes} mins</strong></span>
+                  </div>
+                ` : ''}
+
+                <div style="font-size: var(--font-size-xs); font-weight: 700; color: var(--text-main); margin-bottom: var(--space-2);">
+                  Routes Serving This Stop (${routes.length}):
+                </div>
+
+                <div style="display: flex; gap: var(--space-2); flex-wrap: wrap;">
+                  ${routes.length > 0 ? routes.map(r => `
+                    <a href="route-details.html?id=${r.id}" class="badge badge-info" style="text-decoration: none;" title="${r.name}">
+                      ${r.route_number}: ${r.name}
+                    </a>
+                  `).join('') : '<span style="font-size: 11px; color: var(--text-muted);">No published routes currently serving</span>'}
+                </div>
+              </div>
+            </div>
+          `;
+        }).join('');
+
+      } catch (err) {
+        container.innerHTML = `<div class="alert alert-danger">Failed to load stops: ${err.message}</div>`;
+      }
+    }
+
+    function requestUserLocation() {
+      const notice = document.getElementById('geo-notice');
+      const btn = document.getElementById('geo-btn');
+
+      if (!navigator.geolocation) {
+        notice.className = 'alert alert-danger';
+        notice.innerHTML = '<strong>Location Error:</strong> Geolocation is not supported by your browser.';
+        notice.style.display = 'block';
+        return;
+      }
+
+      btn.disabled = true;
+      btn.innerText = '📍 Detecting Location...';
+
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          btn.disabled = false;
+          btn.innerText = '📍 Location Active (Nearest Stops)';
+          userCoords = {
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude
+          };
+
+          notice.className = 'alert alert-success';
+          notice.innerHTML = `
+            <div>
+              <strong>Location Detected:</strong> Showing nearest college bus stops sorted by straight-line geographic proximity.
+              <div style="font-size: 0.75rem; opacity: 0.9;">Coordinates: ${userCoords.latitude.toFixed(4)}° N, ${userCoords.longitude.toFixed(4)}° E</div>
+            </div>
+          `;
+          notice.style.display = 'block';
+
+          // Update Map with User Pin
+          if (userMarker) userMarker.remove();
+          userMarker = L.marker([userCoords.latitude, userCoords.longitude], {
+            icon: MapService.getUserLocationIcon()
+          }).addTo(mapInstance);
+          userMarker.bindPopup('<strong>Your Current Position</strong>').openPopup();
+
+          mapInstance.setView([userCoords.latitude, userCoords.longitude], 13);
+
+          loadStops();
+        },
+        (error) => {
+          btn.disabled = false;
+          btn.innerText = '📍 Find Nearest Stop (Use My Location)';
+          let msg = 'Unable to access your location.';
+          if (error.code === error.PERMISSION_DENIED) {
+            msg = 'Location permission was denied. To find nearest stops automatically, please allow location access in your browser address bar.';
+          } else if (error.code === error.POSITION_UNAVAILABLE) {
+            msg = 'GPS location is currently unavailable.';
+          } else if (error.code === error.TIMEOUT) {
+            msg = 'Location request timed out. Please try again.';
+          }
+
+          notice.className = 'alert alert-warning';
+          notice.innerHTML = `<strong>Notice:</strong> ${msg}`;
+          notice.style.display = 'block';
+        },
+        { timeout: 10000, enableHighAccuracy: true }
+      );
+    }
+
+    function debounceSearch() {
+      clearTimeout(searchDebounce);
+      searchDebounce = setTimeout(loadStops, 300);
+    }
+
+    function resetSearch() {
+      document.getElementById('stop-search-input').value = '';
+      userCoords = null;
+      document.getElementById('geo-notice').style.display = 'none';
+      document.getElementById('geo-btn').innerText = '📍 Find Nearest Stop (Use My Location)';
+      if (userMarker) userMarker.remove();
+      loadStops();
+    }
+  </script>
+</body>
+</html>
+

@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Explore Bus Routes - RouteReady Campus | MRECW</title>
+  <link rel="stylesheet" href="assets/css/design-system.css">
+  <link rel="stylesheet" href="assets/css/components.css">
+  <link rel="stylesheet" href="assets/css/pages.css">
+</head>
+<body>
+
+  <div id="navbar-placeholder"></div>
+
+  <main class="content-container">
+    
+    <!-- Page Header -->
+    <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: var(--space-6); flex-wrap: wrap; gap: var(--space-4);">
+      <div>
+        <div class="badge badge-accent">College Transportation Network</div>
+        <h1 style="font-size: var(--font-size-3xl); margin-top: var(--space-1);">Explore College Bus Routes</h1>
+        <p style="color: var(--text-muted); font-size: var(--font-size-sm);">
+          Discover bus routes connecting Secunderabad, Kukatpally, Uppal, and Mehdipatnam to MRECW Campus Maisammaguda.
+        </p>
+      </div>
+      <div>
+        <a href="timetable.html" class="btn btn-outline btn-sm">📅 View Master Timetable</a>
+      </div>
+    </div>
+
+    <!-- Filter & Search Toolbar -->
+    <div class="card" style="margin-bottom: var(--space-6);">
+      <div class="card-body">
+        <div style="font-weight: 700; font-size: var(--font-size-sm); margin-bottom: var(--space-3); color: var(--text-main);">
+          🔍 Filter Routes by Keyword or Plan Journey by Origin & Destination Stops
+        </div>
+        
+        <div style="display: grid; grid-template-columns: 2fr 1.5fr 1.5fr auto; gap: var(--space-3); align-items: flex-end;">
+          <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label">Search Query</label>
+            <input type="text" id="route-query" class="form-input" placeholder="e.g. R-01, KPHB, Secunderabad, Suchitra...">
+          </div>
+
+          <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label">Boarding Stop (Origin)</label>
+            <select id="origin-stop" class="form-select">
+              <option value="">-- Any Boarding Stop --</option>
+            </select>
+          </div>
+
+          <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label">Alighting Stop (Destination)</label>
+            <select id="dest-stop" class="form-select">
+              <option value="">-- Any Destination Stop --</option>
+            </select>
+          </div>
+
+          <div style="display: flex; gap: var(--space-2);">
+            <button onclick="fetchAndRenderRoutes()" class="btn btn-primary" style="height: 40px;">
+              Filter Routes
+            </button>
+            <button onclick="resetFilters()" class="btn btn-outline" style="height: 40px;" title="Reset Filters">
+              ✕
+            </button>
+          </div>
+        </div>
+
+        <!-- Stop Sequence Information Banner (Dynamic) -->
+        <div id="sequence-alert-container" style="margin-top: var(--space-3); display: none;"></div>
+      </div>
+    </div>
+
+    <!-- Routes Grid List -->
+    <div id="routes-grid" class="grid-2">
+      <div class="empty-state">
+        <div class="spinner"></div>
+        <p style="margin-top: var(--space-2);">Loading routes...</p>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Scripts -->
+  <script src="assets/js/config.js"></script>
+  <script src="assets/js/theme.js"></script>
+  <script src="assets/js/auth.js"></script>
+  <script src="assets/js/api.js"></script>
+  <script src="assets/js/components.js"></script>
+
+  <script>
+    let allStops = [];
+    let userFavoriteIds = new Set();
+
+    document.addEventListener('DOMContentLoaded', async () => {
+      UI.renderNavbar('routes');
+
+      // Check URL query parameters
+      const urlParams = new URLSearchParams(window.location.search);
+      const initialQuery = urlParams.get('q');
+      if (initialQuery) {
+        document.getElementById('route-query').value = initialQuery;
+      }
+
+      // Load user favorites if signed in
+      if (Auth.isAuthenticated()) {
+        try {
+          const favRes = await API.get('/favorites');
+          if (favRes.favorite_ids) {
+            userFavoriteIds = new Set(favRes.favorite_ids);
+          }
+        } catch (e) {
+          console.warn('Could not load favorites:', e);
+        }
+      }
+
+      // Load all stops to populate origin/destination dropdowns
+      try {
+        const stopsRes = await API.get('/stops');
+        allStops = stopsRes.stops || [];
+        populateStopDropdowns();
+      } catch (e) {
+        console.error('Failed to load stops dropdown:', e);
+      }
+
+      // Initial route fetch
+      fetchAndRenderRoutes();
+    });
+
+    function populateStopDropdowns() {
+      const originSelect = document.getElementById('origin-stop');
+      const destSelect = document.getElementById('dest-stop');
+
+      allStops.forEach(s => {
+        const opt1 = document.createElement('option');
+        opt1.value = s.id;
+        opt1.textContent = s.name;
+        originSelect.appendChild(opt1);
+
+        const opt2 = document.createElement('option');
+        opt2.value = s.id;
+        opt2.textContent = s.name;
+        destSelect.appendChild(opt2);
+      });
+    }
+
+    async function fetchAndRenderRoutes() {
+      const q = document.getElementById('route-query').value.trim();
+      const origin_stop_id = document.getElementById('origin-stop').value;
+      const destination_stop_id = document.getElementById('dest-stop').value;
+      const grid = document.getElementById('routes-grid');
+      const seqContainer = document.getElementById('sequence-alert-container');
+
+      seqContainer.style.display = 'none';
+      grid.innerHTML = '<div class="empty-state"><div class="spinner"></div><p style="margin-top:var(--space-2);">Loading routes...</p></div>';
+
+      const params = new URLSearchParams();
+      if (q) params.set('q', q);
+      if (origin_stop_id) params.set('origin_stop_id', origin_stop_id);
+      if (destination_stop_id) params.set('destination_stop_id', destination_stop_id);
+
+      try {
+        const res = await API.get(`/routes?${params.toString()}`);
+        const routes = res.routes || [];
+
+        if (origin_stop_id && destination_stop_id) {
+          if (routes.length > 0 && routes[0].origin_destination_search) {
+            const od = routes[0].origin_destination_search;
+            seqContainer.innerHTML = `
+              <div class="alert alert-success" style="margin-bottom:0;">
+                <span>✓</span>
+                <div>
+                  <strong>Valid Route Sequence Found:</strong> The selected boarding stop precedes the destination stop.
+                  <div style="font-size: 0.75rem; opacity: 0.9;">
+                    Intermediate stops: <strong>${od.intermediate_stops}</strong> • Estimated journey time: <strong>~${od.scheduled_segment_minutes} mins</strong> (scheduled estimate).
+                  </div>
+                </div>
+              </div>
+            `;
+            seqContainer.style.display = 'block';
+          } else {
+            seqContainer.innerHTML = `
+              <div class="alert alert-warning" style="margin-bottom:0;">
+                <span>⚠️</span>
+                <div>
+                  <strong>No direct sequence match:</strong> Either no route serves both stops, or the chosen boarding stop does not precede the destination in the bus route sequence.
+                </div>
+              </div>
+            `;
+            seqContainer.style.display = 'block';
+          }
+        }
+
+        if (routes.length === 0) {
+          grid.innerHTML = `
+            <div class="empty-state" style="grid-column: 1 / -1;">
+              <div class="empty-state-icon">🚌</div>
+              <div class="empty-state-title">No matching routes found</div>
+              <p>Try adjusting your search keyword or selected stops.</p>
+              <button onclick="resetFilters()" class="btn btn-outline btn-sm" style="margin-top: var(--space-4);">Clear Filters</button>
+            </div>
+          `;
+          return;
+        }
+
+        grid.innerHTML = routes.map(r => {
+          const isFav = userFavoriteIds.has(r.id);
+          const favBtnText = isFav ? '❤️ Saved' : '🤍 Save Favorite';
+          const favBtnClass = isFav ? 'btn-accent' : 'btn-outline';
+
+          return `
+            <div class="card card-hover">
+              <div class="card-header">
+                <div>
+                  <span class="badge badge-accent">${r.route_number}</span>
+                  <span style="font-weight: 700; margin-left: var(--space-2); font-size: var(--font-size-base);">${r.name}</span>
+                </div>
+                <div>
+                  ${r.is_accessible ? '<span class="badge badge-success" title="Wheelchair and priority seating accessible">♿ Accessible</span>' : ''}
+                </div>
+              </div>
+
+              <div class="card-body">
+                <div style="font-size: var(--font-size-sm); margin-bottom: var(--space-4); line-height: 1.6;">
+                  <div><span style="color:var(--text-muted);">From:</span> <strong>${r.origin_label}</strong> (${r.departure_time})</div>
+                  <div><span style="color:var(--text-muted);">To:</span> <strong>${r.destination_label}</strong> (${r.arrival_time})</div>
+                  ${r.description ? `<div style="font-size: var(--font-size-xs); color: var(--text-muted); margin-top: 4px;">${r.description}</div>` : ''}
+                </div>
+
+                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-2); background-color: var(--bg-surface-alt); padding: var(--space-3); border-radius: var(--radius-md); margin-bottom: var(--space-4); text-align: center;">
+                  <div>
+                    <div style="font-size: 10px; color: var(--text-muted); text-transform: uppercase;">Duration</div>
+                    <div style="font-weight: 700; font-size: var(--font-size-sm);">${r.estimated_duration_minutes}m</div>
+                  </div>
+                  <div>
+                    <div style="font-size: 10px; color: var(--text-muted); text-transform: uppercase;">Total Stops</div>
+                    <div style="font-weight: 700; font-size: var(--font-size-sm);">${r.total_stops}</div>
+                  </div>
+                  <div>
+                    <div style="font-size: 10px; color: var(--text-muted); text-transform: uppercase;">Available Seats</div>
+                    <div style="font-weight: 700; font-size: var(--font-size-sm); color: var(--color-success);">
+                      ${r.available_seats !== null ? `${r.available_seats} / ${r.seat_capacity}` : 'Known: ' + (r.seat_capacity || 54)}
+                    </div>
+                  </div>
+                </div>
+
+                <div style="display: flex; gap: var(--space-2); flex-wrap: wrap;">
+                  <a href="route-details.html?id=${r.id}" class="btn btn-primary btn-sm" style="flex: 2;">
+                    🗺️ Stop Sequence & Live Map
+                  </a>
+                  <a href="timetable.html?route=${r.id}" class="btn btn-outline btn-sm">
+                    📅 Timetable & PDF
+                  </a>
+                  ${Auth.isAuthenticated() ? `
+                    <button onclick="toggleFavorite('${r.id}')" class="btn ${favBtnClass} btn-sm" id="fav-btn-${r.id}">
+                      ${favBtnText}
+                    </button>
+                  ` : ''}
+                </div>
+              </div>
+            </div>
+          `;
+        }).join('');
+
+      } catch (err) {
+        grid.innerHTML = `<div class="alert alert-danger" style="grid-column: 1 / -1;">Failed to load routes: ${err.message}</div>`;
+      }
+    }
+
+    function resetFilters() {
+      document.getElementById('route-query').value = '';
+      document.getElementById('origin-stop').value = '';
+      document.getElementById('dest-stop').value = '';
+      document.getElementById('sequence-alert-container').style.display = 'none';
+      fetchAndRenderRoutes();
+    }
+
+    async function toggleFavorite(routeId) {
+      if (!Auth.isAuthenticated()) {
+        window.location.href = 'login.html';
+        return;
+      }
+
+      const btn = document.getElementById(`fav-btn-${routeId}`);
+      const isFav = userFavoriteIds.has(routeId);
+
+      try {
+        if (isFav) {
+          await API.delete(`/favorites/${routeId}`);
+          userFavoriteIds.delete(routeId);
+          btn.className = 'btn btn-outline btn-sm';
+          btn.innerText = '🤍 Save Favorite';
+          showToast('Removed from favorites', 'info');
+        } else {
+          await API.post(`/favorites/${routeId}`);
+          userFavoriteIds.add(routeId);
+          btn.className = 'btn btn-accent btn-sm';
+          btn.innerText = '❤️ Saved';
+          showToast('Added to your favorite routes', 'success');
+        }
+      } catch (err) {
+        showToast(err.message, 'danger');
+      }
+    }
+  </script>
+</body>
+</html>
+

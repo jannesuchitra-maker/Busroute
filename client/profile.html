@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Account Settings - RouteReady Campus | MRECW</title>
+  <link rel="stylesheet" href="assets/css/design-system.css">
+  <link rel="stylesheet" href="assets/css/components.css">
+  <link rel="stylesheet" href="assets/css/pages.css">
+</head>
+<body>
+
+  <div class="app-shell">
+    
+    <div id="sidebar-placeholder"></div>
+
+    <div class="app-main">
+      
+      <header class="topbar">
+        <div>
+          <h1 style="font-size: var(--font-size-lg);">Account Settings & Preferences</h1>
+        </div>
+        <div style="display: flex; align-items: center; gap: var(--space-3);">
+          <button class="theme-toggle-btn" onclick="toggleTheme()">🌙 Dark Mode</button>
+        </div>
+      </header>
+
+      <main class="content-container">
+
+        <div class="card" style="max-width: 650px; margin: 0 auto;">
+          <div class="card-header">
+            <div>
+              <h2 style="font-size: var(--font-size-base);">User Profile & Notifications</h2>
+              <div style="font-size: var(--font-size-xs); color: var(--text-muted);">Malla Reddy Engineering College for Women Transport Registry</div>
+            </div>
+            <span id="profile-role-badge" class="badge badge-accent">STUDENT</span>
+          </div>
+
+          <div class="card-body">
+            <form onsubmit="handleUpdateProfile(event)">
+              <div class="form-group">
+                <label class="form-label">Full Name</label>
+                <input type="text" id="prof-name" class="form-input" required>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Official College Email (Read-Only)</label>
+                <input type="email" id="prof-email" class="form-input" disabled style="opacity: 0.7; background-color: var(--bg-surface-alt);">
+                <span class="form-hint">Email modifications require Transport Admin verification.</span>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Contact Phone Number</label>
+                <input type="tel" id="prof-phone" class="form-input" placeholder="+91 98765 43210">
+              </div>
+
+              <div style="margin: var(--space-6) 0; height: 1px; background: var(--border-subtle);"></div>
+
+              <h3 style="font-size: var(--font-size-sm); margin-bottom: var(--space-3); font-weight: 700;">
+                🔔 Notification Preferences
+              </h3>
+
+              <div class="form-group">
+                <label style="display: flex; align-items: center; gap: var(--space-3); cursor: pointer;">
+                  <input type="checkbox" id="prof-pref-email" checked style="width: 18px; height: 18px;">
+                  <div>
+                    <div style="font-size: var(--font-size-sm); font-weight: 600;">Email Alerts</div>
+                    <div style="font-size: var(--font-size-xs); color: var(--text-muted);">Receive timetable changes and semester exam schedule announcements.</div>
+                  </div>
+                </label>
+              </div>
+
+              <div class="form-group">
+                <label style="display: flex; align-items: center; gap: var(--space-3); cursor: pointer;">
+                  <input type="checkbox" id="prof-pref-inapp" checked style="width: 18px; height: 18px;">
+                  <div>
+                    <div style="font-size: var(--font-size-sm); font-weight: 600;">In-App Push Alerts</div>
+                    <div style="font-size: var(--font-size-xs); color: var(--text-muted);">Display real-time traffic delay and breakdown notices on your dashboard.</div>
+                  </div>
+                </label>
+              </div>
+
+              <button type="submit" id="prof-save-btn" class="btn btn-primary" style="width: 100%; margin-top: var(--space-4);">
+                Save Profile Changes
+              </button>
+            </form>
+          </div>
+        </div>
+
+      </main>
+
+    </div>
+
+  </div>
+
+  <script src="assets/js/config.js"></script>
+  <script src="assets/js/theme.js"></script>
+  <script src="assets/js/auth.js"></script>
+  <script src="assets/js/api.js"></script>
+  <script src="assets/js/components.js"></script>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', async () => {
+      if (!Auth.guard()) return;
+
+      UI.renderAppShell('profile');
+      loadProfile();
+    });
+
+    async function loadProfile() {
+      try {
+        const res = await API.get('/auth/me');
+        const user = res.user;
+        const prefs = res.preferences || {};
+
+        document.getElementById('prof-name').value = user.full_name;
+        document.getElementById('prof-email').value = user.email;
+        document.getElementById('prof-phone').value = user.phone || '';
+        document.getElementById('profile-role-badge').innerText = user.role.toUpperCase();
+
+        document.getElementById('prof-pref-email').checked = prefs.email_enabled !== false;
+        document.getElementById('prof-pref-inapp').checked = prefs.in_app_enabled !== false;
+      } catch (err) {
+        showToast('Failed to load profile: ' + err.message, 'danger');
+      }
+    }
+
+    async function handleUpdateProfile(e) {
+      e.preventDefault();
+      const full_name = document.getElementById('prof-name').value.trim();
+      const phone = document.getElementById('prof-phone').value.trim();
+      const email_enabled = document.getElementById('prof-pref-email').checked;
+      const in_app_enabled = document.getElementById('prof-pref-inapp').checked;
+      const btn = document.getElementById('prof-save-btn');
+
+      btn.disabled = true;
+
+      try {
+        const res = await API.put('/auth/profile', {
+          full_name,
+          phone,
+          email_enabled,
+          in_app_enabled
+        });
+        Auth.setSession(Auth.getToken(), res.user);
+        showToast('Profile and preferences updated successfully!', 'success');
+        btn.disabled = false;
+        UI.renderAppShell('profile');
+      } catch (err) {
+        showToast(err.message, 'danger');
+        btn.disabled = false;
+      }
+    }
+  </script>
+</body>
+</html>
+

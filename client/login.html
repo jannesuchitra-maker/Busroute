@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sign In - RouteReady Campus | MRECW</title>
+  <link rel="stylesheet" href="assets/css/design-system.css">
+  <link rel="stylesheet" href="assets/css/components.css">
+  <link rel="stylesheet" href="assets/css/pages.css">
+</head>
+<body style="display: flex; flex-direction: column; min-height: 100vh;">
+
+  <div id="navbar-placeholder"></div>
+
+  <div style="flex: 1; display: flex; align-items: center; justify-content: center; padding: var(--space-8);">
+    <div class="card" style="width: 100%; max-width: 440px; box-shadow: var(--shadow-xl);">
+      <div class="card-header" style="flex-direction: column; align-items: flex-start; gap: var(--space-1);">
+        <div class="badge badge-accent">Secure Portal</div>
+        <h1 style="font-size: var(--font-size-xl);">Sign In to RouteReady</h1>
+        <p style="font-size: var(--font-size-xs); color: var(--text-muted);">
+          Malla Reddy Engineering College for Women Transport System
+        </p>
+      </div>
+
+      <div class="card-body">
+        <form id="login-form" onsubmit="handleLogin(event)">
+          <div class="form-group">
+            <label class="form-label" for="email">College Email Address</label>
+            <input type="email" id="email" class="form-input" required placeholder="e.g. student@mrecw.ac.in">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="password">Password</label>
+            <input type="password" id="password" class="form-input" required placeholder="Enter your password">
+          </div>
+
+          <div id="login-error" class="alert alert-danger" style="display: none; margin-bottom: var(--space-4);"></div>
+
+          <button type="submit" id="submit-btn" class="btn btn-primary" style="width: 100%; height: 44px;">
+            Sign In
+          </button>
+        </form>
+
+        <div style="text-align: center; margin-top: var(--space-4); font-size: var(--font-size-sm); color: var(--text-muted);">
+          Don't have an account? <a href="register.html" style="font-weight: 600;">Register as Student</a>
+        </div>
+
+        <div style="margin: var(--space-6) 0; height: 1px; background: var(--border-subtle); position: relative; text-align: center;">
+          <span style="position: absolute; top: -10px; background: var(--bg-surface); padding: 0 10px; font-size: 11px; color: var(--text-muted); left: 50%; transform: translateX(-50%);">
+            OR DEMO ROLE SHORTCUTS
+          </span>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-2);">
+          <button type="button" onclick="fillCredentials('student@mrecw.ac.in', 'Student@123')" class="btn btn-outline btn-sm">
+            👩‍🎓 Student
+          </button>
+          <button type="button" onclick="fillCredentials('driver@mrecw.ac.in', 'Driver@123')" class="btn btn-outline btn-sm">
+            🚍 Bus Driver
+          </button>
+          <button type="button" onclick="fillCredentials('admin@mrecw.ac.in', 'Admin@123')" class="btn btn-outline btn-sm">
+            ⚙️ Transport Admin
+          </button>
+          <button type="button" onclick="fillCredentials('manager@mrecw.ac.in', 'Manager@123')" class="btn btn-outline btn-sm">
+            📈 Transport Manager
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="assets/js/config.js"></script>
+  <script src="assets/js/theme.js"></script>
+  <script src="assets/js/auth.js"></script>
+  <script src="assets/js/api.js"></script>
+  <script src="assets/js/components.js"></script>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      UI.renderNavbar();
+      if (Auth.isAuthenticated()) {
+        const user = Auth.getUser();
+        window.location.href = Auth.getDashboardUrl(user.role);
+      }
+    });
+
+    function fillCredentials(email, pass) {
+      document.getElementById('email').value = email;
+      document.getElementById('password').value = pass;
+      document.getElementById('login-form').dispatchEvent(new Event('submit'));
+    }
+
+    async function handleLogin(e) {
+      e.preventDefault();
+      const email = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
+      const errorDiv = document.getElementById('login-error');
+      const submitBtn = document.getElementById('submit-btn');
+
+      errorDiv.style.display = 'none';
+      submitBtn.disabled = true;
+      submitBtn.innerText = 'Signing in...';
+
+      try {
+        const res = await API.post('/auth/login', { email, password });
+        Auth.setSession(res.token, res.user);
+        showToast('Signed in successfully', 'success');
+
+        const params = new URLSearchParams(window.location.search);
+        const redirect = params.get('redirect');
+        
+        setTimeout(() => {
+          if (redirect) {
+            window.location.href = redirect;
+          } else {
+            window.location.href = Auth.getDashboardUrl(res.user.role);
+          }
+        }, 500);
+      } catch (err) {
+        errorDiv.innerText = err.message || 'Login failed. Please verify your credentials.';
+        errorDiv.style.display = 'block';
+        submitBtn.disabled = false;
+        submitBtn.innerText = 'Sign In';
+      }
+    }
+  </script>
+</body>
+</html>
+

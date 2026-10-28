@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Transport Manager - RouteReady Campus | MRECW</title>
+  <link rel="stylesheet" href="assets/css/design-system.css">
+  <link rel="stylesheet" href="assets/css/components.css">
+  <link rel="stylesheet" href="assets/css/pages.css">
+</head>
+<body>
+
+  <div class="app-shell">
+    
+    <div id="sidebar-placeholder"></div>
+
+    <div class="app-main">
+      
+      <!-- Topbar -->
+      <header class="topbar">
+        <div>
+          <h1 style="font-size: var(--font-size-lg);">Transport Operations & Monitoring</h1>
+        </div>
+        <div style="display: flex; align-items: center; gap: var(--space-3);">
+          <button class="theme-toggle-btn" onclick="toggleTheme()">🌙 Dark Mode</button>
+          <span class="badge badge-accent">Transport Manager</span>
+        </div>
+      </header>
+
+      <main class="content-container">
+
+        <!-- Operational Status Banners -->
+        <div class="grid-4" style="margin-bottom: var(--space-6);">
+          <div class="card" style="padding: var(--space-4); text-align: center;">
+            <div style="font-size: 11px; text-transform: uppercase; color: var(--text-muted);">Fleet Occupancy</div>
+            <div id="metric-occupancy" style="font-size: 1.75rem; font-weight: 800; color: var(--color-primary);">-</div>
+          </div>
+          <div class="card" style="padding: var(--space-4); text-align: center;">
+            <div style="font-size: 11px; text-transform: uppercase; color: var(--text-muted);">Active Service Trips</div>
+            <div id="metric-trips" style="font-size: 1.75rem; font-weight: 800; color: var(--color-success);">-</div>
+          </div>
+          <div class="card" style="padding: var(--space-4); text-align: center;">
+            <div style="font-size: 11px; text-transform: uppercase; color: var(--text-muted);">Pending Issues</div>
+            <div id="metric-issues" style="font-size: 1.75rem; font-weight: 800; color: var(--color-warning);">-</div>
+          </div>
+          <div class="card" style="padding: var(--space-4); text-align: center;">
+            <div style="font-size: 11px; text-transform: uppercase; color: var(--text-muted);">Avg Student Rating</div>
+            <div id="metric-rating" style="font-size: 1.75rem; font-weight: 800; color: var(--color-accent);">-</div>
+          </div>
+        </div>
+
+        <div class="grid-2" style="margin-bottom: var(--space-6);">
+          
+          <!-- Broadcast Service Alert Modal/Form -->
+          <div class="card">
+            <div class="card-header">
+              <h2 style="font-size: var(--font-size-base);">📢 Broadcast Urgent Service Alert</h2>
+            </div>
+            <div class="card-body">
+              <form onsubmit="handlePublishAlert(event)">
+                <div class="form-group">
+                  <label class="form-label">Alert Headline *</label>
+                  <input type="text" id="alert_title" class="form-input" required placeholder="e.g. NH 44 Highway Traffic Delay">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Alert Description *</label>
+                  <textarea id="alert_desc" class="form-textarea" rows="2" required placeholder="Describe detour or anticipated minutes of delay..."></textarea>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3); margin-bottom: var(--space-4);">
+                  <div class="form-group" style="margin-bottom: 0;">
+                    <label class="form-label">Severity Level</label>
+                    <select id="alert_severity" class="form-select">
+                      <option value="warning">Warning (Delay / Detour)</option>
+                      <option value="minor">Minor Notice</option>
+                      <option value="severe">Severe Breakdown</option>
+                    </select>
+                  </div>
+                  <div class="form-group" style="margin-bottom: 0;">
+                    <label class="form-label">Impacted Route</label>
+                    <select id="alert_route" class="form-select">
+                      <option value="">All Routes</option>
+                    </select>
+                  </div>
+                </div>
+                <button type="submit" class="btn btn-primary btn-sm" style="width: 100%;">
+                  Broadcast Alert Immediately
+                </button>
+              </form>
+            </div>
+          </div>
+
+          <!-- Publish General Announcement Form -->
+          <div class="card">
+            <div class="card-header">
+              <h2 style="font-size: var(--font-size-base);">📰 Publish Transport Announcement</h2>
+            </div>
+            <div class="card-body">
+              <form onsubmit="handlePublishAnn(event)">
+                <div class="form-group">
+                  <label class="form-label">Announcement Title *</label>
+                  <input type="text" id="ann_title" class="form-input" required placeholder="e.g. Special Exam Bus Schedule">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Detailed Content *</label>
+                  <textarea id="ann_body" class="form-textarea" rows="4" required placeholder="Provide instructions for students regarding timings..."></textarea>
+                </div>
+                <button type="submit" class="btn btn-accent btn-sm" style="width: 100%;">
+                  Post Announcement
+                </button>
+              </form>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Issue Reports Resolution Worklist -->
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <h2 style="font-size: var(--font-size-base);">⚠️ Transport Issues & Student Complaints Worklist</h2>
+              <div style="font-size: var(--font-size-xs); color: var(--text-muted);">Assign staff, update investigation status, and record resolution notes</div>
+            </div>
+          </div>
+          <div class="card-body" style="padding: 0;">
+            <div class="table-container" style="border: none;">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th>Category</th>
+                    <th>Reporter</th>
+                    <th>Route / Stop</th>
+                    <th>Details</th>
+                    <th>Status</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody id="manager-issues-tbody">
+                  <tr><td colspan="6" style="text-align: center;">Loading issues...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+      </main>
+
+    </div>
+
+  </div>
+
+  <!-- Resolution Modal -->
+  <div id="resolve-modal" class="modal-backdrop">
+    <div class="modal-container">
+      <div class="modal-header">
+        <h3 style="font-size: var(--font-size-base);">Update Issue Status & Resolution</h3>
+        <button onclick="closeModal('resolve-modal')" class="btn btn-outline btn-sm">✕</button>
+      </div>
+      <form onsubmit="handleSaveResolution(event)">
+        <input type="hidden" id="resolve_issue_id">
+        <div class="modal-body">
+          <div class="form-group">
+            <label class="form-label">Status</label>
+            <select id="resolve_status" class="form-select">
+              <option value="submitted">Submitted</option>
+              <option value="investigating">Investigating</option>
+              <option value="resolved">Resolved</option>
+              <option value="closed">Closed</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Resolution Notes for Student</label>
+            <textarea id="resolve_notes" class="form-textarea" rows="3" placeholder="e.g. Additional backup bus dispatched from Maisammaguda depot..."></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" onclick="closeModal('resolve-modal')" class="btn btn-outline btn-sm">Cancel</button>
+          <button type="submit" class="btn btn-primary btn-sm">Save Update</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="assets/js/config.js"></script>
+  <script src="assets/js/theme.js"></script>
+  <script src="assets/js/auth.js"></script>
+  <script src="assets/js/api.js"></script>
+  <script src="assets/js/components.js"></script>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', async () => {
+      if (!Auth.guard(['transport_manager', 'admin'])) return;
+
+      UI.renderAppShell('manager-overview');
+      loadAnalytics();
+      loadRoutesForDropdown();
+      loadIssues();
+    });
+
+    async function loadAnalytics() {
+      try {
+        const res = await API.get('/admin/analytics');
+        const a = res.analytics;
+        document.getElementById('metric-occupancy').innerText = `${a.fleet_occupancy_percentage}% (${a.current_occupied_seats}/${a.fleet_seat_capacity})`;
+        document.getElementById('metric-trips').innerText = a.active_trips;
+        document.getElementById('metric-issues').innerText = a.open_issues;
+        document.getElementById('metric-rating').innerText = `${a.average_student_rating} ★`;
+      } catch (e) {
+        console.warn('Analytics failed:', e);
+      }
+    }
+
+    async function loadRoutesForDropdown() {
+      try {
+        const res = await API.get('/routes');
+        const select = document.getElementById('alert_route');
+        (res.routes || []).forEach(r => {
+          const opt = document.createElement('option');
+          opt.value = r.id;
+          opt.textContent = `${r.route_number}: ${r.name}`;
+          select.appendChild(opt);
+        });
+      } catch (e) {}
+    }
+
+    async function loadIssues() {
+      const tbody = document.getElementById('manager-issues-tbody');
+      try {
+        const res = await API.get('/issues');
+        const issues = res.issues || [];
+
+        tbody.innerHTML = issues.map(i => `
+          <tr>
+            <td style="font-weight: 700; text-transform: capitalize;">${i.category.replace('_', ' ')}</td>
+            <td>${i.reporter_name}<br><span style="font-size: 11px; color: var(--text-muted);">${i.reporter_email || ''}</span></td>
+            <td>${i.route_name || 'General Transport'}</td>
+            <td style="max-width: 280px; font-size: 13px;">
+              ${i.description}
+              ${i.resolution_notes ? `<div style="font-size: 11px; color: var(--color-success); margin-top: 4px;"><strong>Resolution:</strong> ${i.resolution_notes}</div>` : ''}
+            </td>
+            <td><span class="badge ${i.status === 'resolved' ? 'badge-success' : i.status === 'investigating' ? 'badge-warning' : 'badge-info'}">${i.status}</span></td>
+            <td>
+              <button onclick="openResolveModal('${i.id}', '${i.status}', '${i.resolution_notes || ''}')" class="btn btn-outline btn-sm">
+                Manage
+              </button>
+            </td>
+          </tr>
+        `).join('');
+      } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="6" style="color: var(--color-danger);">${err.message}</td></tr>`;
+      }
+    }
+
+    function openResolveModal(id, status, notes) {
+      document.getElementById('resolve_issue_id').value = id;
+      document.getElementById('resolve_status').value = status;
+      document.getElementById('resolve_notes').value = notes;
+      document.getElementById('resolve-modal').classList.add('active');
+    }
+
+    function closeModal(id) {
+      document.getElementById(id).classList.remove('active');
+    }
+
+    async function handleSaveResolution(e) {
+      e.preventDefault();
+      const id = document.getElementById('resolve_issue_id').value;
+      const status = document.getElementById('resolve_status').value;
+      const resolution_notes = document.getElementById('resolve_notes').value.trim();
+
+      try {
+        await API.patch(`/issues/${id}/status`, { status, resolution_notes });
+        showToast('Issue status and notes updated!', 'success');
+        closeModal('resolve-modal');
+        loadIssues();
+        loadAnalytics();
+      } catch (err) {
+        showToast(err.message, 'danger');
+      }
+    }
+
+    async function handlePublishAlert(e) {
+      e.preventDefault();
+      const title = document.getElementById('alert_title').value.trim();
+      const description = document.getElementById('alert_desc').value.trim();
+      const severity = document.getElementById('alert_severity').value;
+      const route_id = document.getElementById('alert_route').value;
+
+      try {
+        await API.post('/alerts', { title, description, severity, route_id });
+        showToast('Live Service Alert Broadcasted to all college passengers!', 'success');
+        document.getElementById('alert_title').value = '';
+        document.getElementById('alert_desc').value = '';
+      } catch (err) {
+        showToast(err.message, 'danger');
+      }
+    }
+
+    async function handlePublishAnn(e) {
+      e.preventDefault();
+      const title = document.getElementById('ann_title').value.trim();
+      const body = document.getElementById('ann_body').value.trim();
+
+      try {
+        await API.post('/announcements', { title, body });
+        showToast('Official Announcement Posted!', 'success');
+        document.getElementById('ann_title').value = '';
+        document.getElementById('ann_body').value = '';
+      } catch (err) {
+        showToast(err.message, 'danger');
+      }
+    }
+  </script>
+</body>
+</html>
+

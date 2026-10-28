@@ -1,0 +1,77 @@
+# ============================================================================
+# RouteReady Campus — .gitignore
+# ============================================================================
+
+# ----- Environment variables & secrets -----
+.env
+.env.*
+!.env.example
+!.env.sample
+
+# ----- Credentials and private keys -----
+*.pem
+*.key
+*.p12
+*.pfx
+service-account*.json
+credentials*.json
+
+# ----- Dependencies -----
+node_modules/
+
+# ----- Build outputs -----
+dist/
+build/
+out/
+.next/
+.nuxt/
+coverage/
+
+# ----- Caches and temporary files -----
+.cache/
+.parcel-cache/
+.turbo/
+.temp/
+tmp/
+temp/
+
+# ----- Logs -----
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ----- OS files -----
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# ----- Editor / IDE -----
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ----- Local database / data files -----
+data/database.json
+data/local-storage.json
+*.sqlite
+*.sqlite3
+*.db
+*.dump
+*.sql.gz
+
+# ----- Test artifacts -----
+playwright-report/
+test-results/
+
+# ----- Deployment platform state -----
+.vercel/
+.netlify/
+
+# ----- Client runtime config with secrets -----
+# This file contains hardcoded Supabase credentials.
+# Use config.example.js as a template and set real values locally only.
+client/assets/js/config.js
+

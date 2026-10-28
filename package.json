@@ -1,0 +1,31 @@
+{
+  "name": "routeready-campus",
+  "version": "1.0.0",
+  "description": "RouteReady Campus - College Bus Route, Stop & Timetable Planner for Malla Reddy Engineering College for Women",
+  "main": "server/src/server.js",
+  "scripts": {
+    "start": "node server/src/server.js",
+    "dev": "node --watch server/src/server.js",
+    "test": "node server/tests/run-tests.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.49.1",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2"
+  },
+  "devDependencies": {},
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": [
+    "college-transport",
+    "bus-tracking",
+    "mrecw",
+    "timetable-planner",
+    "vanilla-js"
+  ],
+  "author": "Malla Reddy Engineering College for Women",
+  "license": "ISC"
+}
+

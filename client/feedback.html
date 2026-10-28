@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Feedback & Ratings - RouteReady Campus | MRECW</title>
+  <link rel="stylesheet" href="assets/css/design-system.css">
+  <link rel="stylesheet" href="assets/css/components.css">
+  <link rel="stylesheet" href="assets/css/pages.css">
+</head>
+<body>
+
+  <div class="app-shell">
+    
+    <div id="sidebar-placeholder"></div>
+
+    <div class="app-main">
+      
+      <header class="topbar">
+        <div>
+          <h1 style="font-size: var(--font-size-lg);">Transport Service Feedback & Ratings</h1>
+        </div>
+        <div style="display: flex; align-items: center; gap: var(--space-3);">
+          <button class="theme-toggle-btn" onclick="toggleTheme()">🌙 Dark Mode</button>
+        </div>
+      </header>
+
+      <main class="content-container">
+
+        <div class="grid-2" style="align-items: start;">
+          
+          <!-- Feedback Submission Form -->
+          <div class="card">
+            <div class="card-header">
+              <h2 style="font-size: var(--font-size-base);">⭐ Submit Transportation Feedback</h2>
+            </div>
+            <div class="card-body">
+              <form onsubmit="handleSubmitFeedback(event)">
+                <div class="form-group">
+                  <label class="form-label">Overall Service Rating *</label>
+                  <select id="fb-rating" class="form-select" required style="font-size: 1rem;">
+                    <option value="5">⭐⭐⭐⭐⭐ 5 Stars - Excellent Punctuality & Comfort</option>
+                    <option value="4">⭐⭐⭐⭐ 4 Stars - Very Good</option>
+                    <option value="3">⭐⭐⭐ 3 Stars - Average Service</option>
+                    <option value="2">⭐⭐ 2 Stars - Needs Improvement</option>
+                    <option value="1">⭐ 1 Star - Poor Experience</option>
+                  </select>
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label">Related College Bus Route</label>
+                  <select id="fb-route" class="form-select">
+                    <option value="">-- General College Transport --</option>
+                  </select>
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label">Your Comments / Experience *</label>
+                  <textarea id="fb-comment" class="form-textarea" rows="4" required placeholder="Share your experience regarding driver punctuality, cleanliness, seating, or safety..."></textarea>
+                </div>
+
+                <button type="submit" id="fb-submit-btn" class="btn btn-primary" style="width: 100%;">
+                  Submit Feedback
+                </button>
+              </form>
+            </div>
+          </div>
+
+          <!-- Recent Reviews List -->
+          <div class="card">
+            <div class="card-header">
+              <h2 style="font-size: var(--font-size-base);">💬 Student & Staff Reviews</h2>
+              <span id="avg-rating-badge" class="badge badge-accent">4.8 ★</span>
+            </div>
+            <div class="card-body" style="padding: 0;">
+              <div id="reviews-list" style="display: flex; flex-direction: column;">
+                <div class="empty-state">
+                  <div class="spinner"></div> Loading reviews...
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+      </main>
+
+    </div>
+
+  </div>
+
+  <script src="assets/js/config.js"></script>
+  <script src="assets/js/theme.js"></script>
+  <script src="assets/js/auth.js"></script>
+  <script src="assets/js/api.js"></script>
+  <script src="assets/js/components.js"></script>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', async () => {
+      if (!Auth.guard()) return;
+
+      UI.renderAppShell('feedback');
+      loadRoutesDropdown();
+      loadFeedback();
+    });
+
+    async function loadRoutesDropdown() {
+      try {
+        const res = await API.get('/routes');
+        const select = document.getElementById('fb-route');
+        (res.routes || []).forEach(r => {
+          const opt = document.createElement('option');
+          opt.value = r.id;
+          opt.textContent = `${r.route_number}: ${r.name}`;
+          select.appendChild(opt);
+        });
+      } catch (e) {}
+    }
+
+    async function loadFeedback() {
+      const container = document.getElementById('reviews-list');
+      const avgBadge = document.getElementById('avg-rating-badge');
+
+      try {
+        const res = await API.get('/feedback');
+        const list = res.feedback || [];
+
+        avgBadge.innerText = `${res.average_rating || 5.0} ★`;
+
+        if (list.length === 0) {
+          container.innerHTML = `<div class="empty-state" style="padding: var(--space-6);">No feedback submitted yet.</div>`;
+          return;
+        }
+
+        container.innerHTML = list.map(f => `
+          <div style="padding: var(--space-4); border-bottom: 1px solid var(--border-subtle);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+              <span style="color: #F59E0B; font-size: 14px;">${'★'.repeat(f.rating)}${'☆'.repeat(5 - f.rating)}</span>
+              <span style="font-size: 11px; color: var(--text-muted);">${new Date(f.created_at).toLocaleDateString()}</span>
+            </div>
+            <div style="font-size: var(--font-size-xs); font-weight: 700; color: var(--text-main); margin-bottom: 2px;">
+              ${f.user_name} • <span style="color: var(--color-accent);">${f.route_name}</span>
+            </div>
+            <p style="font-size: var(--font-size-xs); color: var(--text-muted);">
+              ${f.comment || 'No comment provided.'}
+            </p>
+          </div>
+        `).join('');
+
+      } catch (err) {
+        container.innerHTML = `<div class="alert alert-danger" style="margin: var(--space-4);">${err.message}</div>`;
+      }
+    }
+
+    async function handleSubmitFeedback(e) {
+      e.preventDefault();
+      const rating = document.getElementById('fb-rating').value;
+      const route_id = document.getElementById('fb-route').value;
+      const comment = document.getElementById('fb-comment').value.trim();
+      const btn = document.getElementById('fb-submit-btn');
+
+      btn.disabled = true;
+
+      try {
+        await API.post('/feedback', { rating, route_id: route_id || null, comment });
+        showToast('Feedback submitted! Thank you.', 'success');
+        document.getElementById('fb-comment').value = '';
+        btn.disabled = false;
+        loadFeedback();
+      } catch (err) {
+        showToast(err.message, 'danger');
+        btn.disabled = false;
+      }
+    }
+  </script>
+</body>
+</html>
+

@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Dashboard - RouteReady Campus | MRECW</title>
+  <link rel="stylesheet" href="assets/css/design-system.css">
+  <link rel="stylesheet" href="assets/css/components.css">
+  <link rel="stylesheet" href="assets/css/pages.css">
+</head>
+<body>
+
+  <div class="app-shell">
+    
+    <div id="sidebar-placeholder"></div>
+
+    <div class="app-main">
+      
+      <!-- Topbar -->
+      <header class="topbar">
+        <div>
+          <h1 style="font-size: var(--font-size-lg);">Transport Administration & Management</h1>
+        </div>
+        <div style="display: flex; align-items: center; gap: var(--space-3);">
+          <button class="theme-toggle-btn" onclick="toggleTheme()">🌙 Dark Mode</button>
+          <span class="badge badge-danger">Administrator</span>
+        </div>
+      </header>
+
+      <main class="content-container">
+
+        <!-- Analytics Overview Cards -->
+        <div class="grid-4" style="margin-bottom: var(--space-6);" id="stats-grid">
+          <div class="card" style="padding: var(--space-4); text-align: center;">
+            <div style="font-size: 11px; text-transform: uppercase; color: var(--text-muted);">Total Routes</div>
+            <div id="stat-routes" style="font-size: 1.75rem; font-weight: 800; color: var(--color-primary);">-</div>
+          </div>
+          <div class="card" style="padding: var(--space-4); text-align: center;">
+            <div style="font-size: 11px; text-transform: uppercase; color: var(--text-muted);">Fleet Buses</div>
+            <div id="stat-buses" style="font-size: 1.75rem; font-weight: 800; color: var(--color-accent);">-</div>
+          </div>
+          <div class="card" style="padding: var(--space-4); text-align: center;">
+            <div style="font-size: 11px; text-transform: uppercase; color: var(--text-muted);">Active Trips</div>
+            <div id="stat-trips" style="font-size: 1.75rem; font-weight: 800; color: var(--color-success);">-</div>
+          </div>
+          <div class="card" style="padding: var(--space-4); text-align: center;">
+            <div style="font-size: 11px; text-transform: uppercase; color: var(--text-muted);">Open Issues</div>
+            <div id="stat-issues" style="font-size: 1.75rem; font-weight: 800; color: var(--color-warning);">-</div>
+          </div>
+        </div>
+
+        <!-- Management Navigation Tabs -->
+        <div class="card" style="margin-bottom: var(--space-6);">
+          <div class="card-header" style="padding: var(--space-2) var(--space-4); background-color: var(--bg-surface-alt);">
+            <div style="display: flex; gap: var(--space-2); flex-wrap: wrap;">
+              <button onclick="switchTab('buses')" class="btn btn-primary btn-sm admin-tab-btn" id="tab-btn-buses">🚍 Buses</button>
+              <button onclick="switchTab('routes')" class="btn btn-outline btn-sm admin-tab-btn" id="tab-btn-routes">🗺️ Routes</button>
+              <button onclick="switchTab('stops')" class="btn btn-outline btn-sm admin-tab-btn" id="tab-btn-stops">📍 Stops</button>
+              <button onclick="switchTab('users')" class="btn btn-outline btn-sm admin-tab-btn" id="tab-btn-users">👥 User Roles</button>
+              <button onclick="switchTab('tracking')" class="btn btn-outline btn-sm admin-tab-btn" id="tab-btn-tracking">📡 Tracking Engine</button>
+            </div>
+          </div>
+
+          <!-- TAB 1: BUSES -->
+          <div id="tab-buses" class="admin-tab-content" style="padding: var(--space-6);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-4);">
+              <h2 style="font-size: var(--font-size-base);">Registered College Buses</h2>
+              <button onclick="openAddBusModal()" class="btn btn-primary btn-sm">+ Register New Bus</button>
+            </div>
+            <div class="table-container" style="border: none;">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th>Bus Number</th>
+                    <th>Registration</th>
+                    <th>Capacity</th>
+                    <th>Accessibility</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="buses-tbody">
+                  <tr><td colspan="6" style="text-align: center;">Loading buses...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- TAB 2: ROUTES -->
+          <div id="tab-routes" class="admin-tab-content" style="padding: var(--space-6); display: none;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-4);">
+              <h2 style="font-size: var(--font-size-base);">College Bus Routes</h2>
+              <button onclick="openAddRouteModal()" class="btn btn-primary btn-sm">+ Create New Route</button>
+            </div>
+            <div class="table-container" style="border: none;">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th>Route #</th>
+                    <th>Name</th>
+                    <th>Origin & Destination</th>
+                    <th>Duration</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="routes-tbody">
+                  <tr><td colspan="6" style="text-align: center;">Loading routes...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- TAB 3: STOPS -->
+          <div id="tab-stops" class="admin-tab-content" style="padding: var(--space-6); display: none;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-4);">
+              <h2 style="font-size: var(--font-size-base);">Transit Stops & Coordinates</h2>
+              <button onclick="openAddStopModal()" class="btn btn-primary btn-sm">+ Add New Stop</button>
+            </div>
+            <div class="table-container" style="border: none;">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th>Stop Name</th>
+                    <th>Landmark / Address</th>
+                    <th>Coordinates (Lat, Lng)</th>
+                    <th>Accessible</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="stops-tbody">
+                  <tr><td colspan="5" style="text-align: center;">Loading stops...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- TAB 4: USERS & ROLES -->
+          <div id="tab-users" class="admin-tab-content" style="padding: var(--space-6); display: none;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-4);">
+              <div>
+                <h2 style="font-size: var(--font-size-base);">User & Role Assignments</h2>
+                <div style="font-size: var(--font-size-xs); color: var(--text-muted);">Protected administrative role assignment portal</div>
+              </div>
+            </div>
+            <div class="table-container" style="border: none;">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th>Full Name</th>
+                    <th>Email</th>
+                    <th>Phone</th>
+                    <th>Current Role</th>
+                    <th>Change Role</th>
+                  </tr>
+                </thead>
+                <tbody id="users-tbody">
+                  <tr><td colspan="5" style="text-align: center;">Loading users...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- TAB 5: TRACKING ENGINE -->
+          <div id="tab-tracking" class="admin-tab-content" style="padding: var(--space-6); display: none;">
+            <h2 style="font-size: var(--font-size-base); margin-bottom: var(--space-2);">Fleet Tracking Configuration</h2>
+            <p style="font-size: var(--font-size-sm); color: var(--text-muted); margin-bottom: var(--space-4);">
+              Switch between simulated telemetry mode (for demonstrations without real GPS hardware) and live GPS driver reporting.
+            </p>
+
+            <div class="card" style="max-width: 500px; padding: var(--space-4);">
+              <div class="form-group">
+                <label class="form-label">Active Bus Tracking Mode</label>
+                <select id="tracking-mode-select" class="form-select">
+                  <option value="simulated">Simulated Demo Movement (Waypoints Engine)</option>
+                  <option value="gps">Real GPS Hardware (Driver Geolocation API)</option>
+                </select>
+              </div>
+              <button onclick="handleTrackingModeChange()" class="btn btn-primary btn-sm">
+                Apply Tracking Mode
+              </button>
+            </div>
+          </div>
+
+        </div>
+
+      </main>
+
+    </div>
+
+  </div>
+
+  <!-- Modal: Add Bus -->
+  <div id="bus-modal" class="modal-backdrop">
+    <div class="modal-container">
+      <div class="modal-header">
+        <h3 style="font-size: var(--font-size-base);">Register New Bus</h3>
+        <button onclick="closeModal('bus-modal')" class="btn btn-outline btn-sm">✕</button>
+      </div>
+      <form onsubmit="handleAddBus(event)">
+        <div class="modal-body">
+          <div class="form-group">
+            <label class="form-label">Bus Code / Identifier *</label>
+            <input type="text" id="bus_number" class="form-input" required placeholder="e.g. BUS-05">
+          </div>
+          <div class="form-group">
+            <label class="form-label">RTA Registration Number *</label>
+            <input type="text" id="registration_number" class="form-input" required placeholder="e.g. TS 08 UB 4525">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Seat Capacity *</label>
+            <input type="number" id="seat_capacity" class="form-input" required min="10" max="80" value="54">
+          </div>
+          <div style="display: flex; gap: var(--space-4); margin-top: var(--space-3);">
+            <label style="display: flex; align-items: center; gap: 6px; font-size: var(--font-size-sm);">
+              <input type="checkbox" id="wheelchair_accessible"> Wheelchair Accessible
+            </label>
+            <label style="display: flex; align-items: center; gap: 6px; font-size: var(--font-size-sm);">
+              <input type="checkbox" id="low_floor"> Low Floor Entry
+            </label>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" onclick="closeModal('bus-modal')" class="btn btn-outline btn-sm">Cancel</button>
+          <button type="submit" class="btn btn-primary btn-sm">Register Bus</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Add Stop -->
+  <div id="stop-modal" class="modal-backdrop">
+    <div class="modal-container">
+      <div class="modal-header">
+        <h3 style="font-size: var(--font-size-base);">Add New Transit Stop</h3>
+        <button onclick="closeModal('stop-modal')" class="btn btn-outline btn-sm">✕</button>
+      </div>
+      <form onsubmit="handleAddStop(event)">
+        <div class="modal-body">
+          <div class="form-group">
+            <label class="form-label">Stop Name *</label>
+            <input type="text" id="stop_name" class="form-input" required placeholder="e.g. Miyapur Metro Station">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Address / Landmark</label>
+            <input type="text" id="stop_address" class="form-input" placeholder="e.g. Near Pillar 45">
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3);">
+            <div class="form-group">
+              <label class="form-label">Latitude * (-90 to 90)</label>
+              <input type="number" step="any" id="stop_lat" class="form-input" required placeholder="17.4950">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Longitude * (-180 to 180)</label>
+              <input type="number" step="any" id="stop_lng" class="form-input" required placeholder="78.3600">
+            </div>
+          </div>
+          <label style="display: flex; align-items: center; gap: 6px; font-size: var(--font-size-sm); margin-top: var(--space-2);">
+            <input type="checkbox" id="stop_accessible" checked> Accessible Stop
+          </label>
+        </div>
+        <div class="modal-footer">
+          <button type="button" onclick="closeModal('stop-modal')" class="btn btn-outline btn-sm">Cancel</button>
+          <button type="submit" class="btn btn-primary btn-sm">Save Stop</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="assets/js/config.js"></script>
+  <script src="assets/js/theme.js"></script>
+  <script src="assets/js/auth.js"></script>
+  <script src="assets/js/api.js"></script>
+  <script src="assets/js/components.js"></script>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', async () => {
+      if (!Auth.guard(['admin'])) return;
+
+      UI.renderAppShell('admin-overview');
+      loadAnalytics();
+      loadBuses();
+      loadRoutes();
+      loadStops();
+      loadUsers();
+    });
+
+    function switchTab(tabId) {
+      document.querySelectorAll('.admin-tab-content').forEach(el => el.style.display = 'none');
+      document.querySelectorAll('.admin-tab-btn').forEach(btn => btn.className = 'btn btn-outline btn-sm admin-tab-btn');
+
+      document.getElementById(`tab-${tabId}`).style.display = 'block';
+      document.getElementById(`tab-btn-${tabId}`).className = 'btn btn-primary btn-sm admin-tab-btn';
+    }
+
+    async function loadAnalytics() {
+      try {
+        const res = await API.get('/admin/analytics');
+        const a = res.analytics;
+        document.getElementById('stat-routes').innerText = a.total_routes;
+        document.getElementById('stat-buses').innerText = a.total_buses;
+        document.getElementById('stat-trips').innerText = a.active_trips;
+        document.getElementById('stat-issues').innerText = a.open_issues;
+      } catch (err) {
+        console.warn('Analytics load error:', err);
+      }
+    }
+
+    async function loadBuses() {
+      const tbody = document.getElementById('buses-tbody');
+      try {
+        const res = await API.get('/admin/buses');
+        tbody.innerHTML = (res.buses || []).map(b => `
+          <tr>
+            <td style="font-weight: 700; color: var(--color-primary);">${b.bus_number}</td>
+            <td style="font-family: var(--font-mono);">${b.registration_number}</td>
+            <td>${b.seat_capacity} Seats</td>
+            <td>${b.accessibility_features && b.accessibility_features.wheelchair_accessible ? '♿ Accessible' : 'Standard'}</td>
+            <td><span class="badge badge-success">${b.status}</span></td>
+            <td>
+              <button onclick="deleteBus('${b.id}')" class="btn btn-outline btn-sm" style="color: var(--color-danger);">Delete</button>
+            </td>
+          </tr>
+        `).join('');
+      } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="6" style="color: var(--color-danger);">${err.message}</td></tr>`;
+      }
+    }
+
+    async function loadRoutes() {
+      const tbody = document.getElementById('routes-tbody');
+      try {
+        const res = await API.get('/routes');
+        tbody.innerHTML = (res.routes || []).map(r => `
+          <tr>
+            <td style="font-weight: 700; color: var(--color-accent);">${r.route_number}</td>
+            <td style="font-weight: 600;">${r.name}</td>
+            <td style="font-size: var(--font-size-xs);">${r.origin_label} ➔ ${r.destination_label}</td>
+            <td>${r.estimated_duration_minutes}m</td>
+            <td><span class="badge badge-success">${r.status}</span></td>
+            <td>
+              <a href="route-details.html?id=${r.id}" class="btn btn-outline btn-sm">View Stops</a>
+            </td>
+          </tr>
+        `).join('');
+      } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="6" style="color: var(--color-danger);">${err.message}</td></tr>`;
+      }
+    }
+
+    async function loadStops() {
+      const tbody = document.getElementById('stops-tbody');
+      try {
+        const res = await API.get('/stops');
+        tbody.innerHTML = (res.stops || []).map(s => `
+          <tr>
+            <td style="font-weight: 600;">${s.name}</td>
+            <td style="color: var(--text-muted); font-size: 12px;">${s.address_label || '-'}</td>
+            <td style="font-family: var(--font-mono); font-size: 11px;">${s.latitude}, ${s.longitude}</td>
+            <td>${s.is_accessible ? '♿ Yes' : 'No'}</td>
+            <td>
+              <button onclick="deleteStop('${s.id}')" class="btn btn-outline btn-sm" style="color: var(--color-danger);">Delete</button>
+            </td>
+          </tr>
+        `).join('');
+      } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="5" style="color: var(--color-danger);">${err.message}</td></tr>`;
+      }
+    }
+
+    async function loadUsers() {
+      const tbody = document.getElementById('users-tbody');
+      try {
+        const res = await API.get('/admin/users');
+        tbody.innerHTML = (res.users || []).map(u => `
+          <tr>
+            <td style="font-weight: 600;">${u.full_name}</td>
+            <td style="color: var(--text-muted);">${u.email}</td>
+            <td>${u.phone || '-'}</td>
+            <td><span class="badge badge-accent">${u.role}</span></td>
+            <td>
+              <select onchange="updateUserRole('${u.id}', this.value)" class="form-select" style="padding: 2px 6px; font-size: 12px; width: auto;">
+                <option value="student" ${u.role === 'student' ? 'selected' : ''}>Student</option>
+                <option value="driver" ${u.role === 'driver' ? 'selected' : ''}>Driver</option>
+                <option value="admin" ${u.role === 'admin' ? 'selected' : ''}>Admin</option>
+                <option value="transport_manager" ${u.role === 'transport_manager' ? 'selected' : ''}>Transport Manager</option>
+              </select>
+            </td>
+          </tr>
+        `).join('');
+      } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="5" style="color: var(--color-danger);">${err.message}</td></tr>`;
+      }
+    }
+
+    async function updateUserRole(userId, newRole) {
+      try {
+        await API.patch(`/admin/users/${userId}/role`, { role: newRole });
+        showToast(`User role updated to '${newRole}'`, 'success');
+        loadUsers();
+      } catch (err) {
+        showToast(err.message, 'danger');
+      }
+    }
+
+    function openAddBusModal() {
+      document.getElementById('bus-modal').classList.add('active');
+    }
+
+    function openAddStopModal() {
+      document.getElementById('stop-modal').classList.add('active');
+    }
+
+    function closeModal(id) {
+      document.getElementById(id).classList.remove('active');
+    }
+
+    async function handleAddBus(e) {
+      e.preventDefault();
+      const bus_number = document.getElementById('bus_number').value.trim();
+      const registration_number = document.getElementById('registration_number').value.trim();
+      const seat_capacity = document.getElementById('seat_capacity').value;
+      const wheelchair_accessible = document.getElementById('wheelchair_accessible').checked;
+      const low_floor = document.getElementById('low_floor').checked;
+
+      try {
+        await API.post('/admin/buses', {
+          bus_number,
+          registration_number,
+          seat_capacity,
+          wheelchair_accessible,
+          low_floor
+        });
+        showToast('Bus registered successfully', 'success');
+        closeModal('bus-modal');
+        loadBuses();
+        loadAnalytics();
+      } catch (err) {
+        showToast(err.message, 'danger');
+      }
+    }
+
+    async function handleAddStop(e) {
+      e.preventDefault();
+      const name = document.getElementById('stop_name').value.trim();
+      const address_label = document.getElementById('stop_address').value.trim();
+      const latitude = document.getElementById('stop_lat').value;
+      const longitude = document.getElementById('stop_lng').value;
+      const is_accessible = document.getElementById('stop_accessible').checked;
+
+      try {
+        await API.post('/admin/stops', {
+          name,
+          address_label,
+          latitude,
+          longitude,
+          is_accessible
+        });
+        showToast('Stop saved successfully', 'success');
+        closeModal('stop-modal');
+        loadStops();
+      } catch (err) {
+        showToast(err.message, 'danger');
+      }
+    }
+
+    async function deleteBus(busId) {
+      if (!confirm('Are you sure you want to remove this bus?')) return;
+      try {
+        await API.delete(`/admin/buses/${busId}`);
+        showToast('Bus removed', 'info');
+        loadBuses();
+      } catch (err) {
+        showToast(err.message, 'danger');
+      }
+    }
+
+    async function deleteStop(stopId) {
+      if (!confirm('Are you sure you want to delete this stop?')) return;
+      try {
+        await API.delete(`/admin/stops/${stopId}`);
+        showToast('Stop deleted', 'info');
+        loadStops();
+      } catch (err) {
+        showToast(err.message, 'danger');
+      }
+    }
+
+    async function handleTrackingModeChange() {
+      const mode = document.getElementById('tracking-mode-select').value;
+      try {
+        await API.post('/tracking/toggle-mode', { mode });
+        showToast(`Tracking mode switched to ${mode.toUpperCase()}`, 'success');
+      } catch (err) {
+        showToast(err.message, 'danger');
+      }
+    }
+  </script>
+</body>
+</html>
+

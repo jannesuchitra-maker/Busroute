@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Transport Issue Reporting - RouteReady Campus | MRECW</title>
+  <link rel="stylesheet" href="assets/css/design-system.css">
+  <link rel="stylesheet" href="assets/css/components.css">
+  <link rel="stylesheet" href="assets/css/pages.css">
+</head>
+<body>
+
+  <div class="app-shell">
+    
+    <div id="sidebar-placeholder"></div>
+
+    <div class="app-main">
+      
+      <!-- Topbar -->
+      <header class="topbar">
+        <div>
+          <h1 style="font-size: var(--font-size-lg);">Transport Issue Reporting & History</h1>
+        </div>
+        <div style="display: flex; align-items: center; gap: var(--space-3);">
+          <button class="theme-toggle-btn" onclick="toggleTheme()">🌙 Dark Mode</button>
+        </div>
+      </header>
+
+      <main class="content-container">
+
+        <div class="grid-2" style="align-items: start;">
+          
+          <!-- Submit Form -->
+          <div class="card">
+            <div class="card-header">
+              <h2 style="font-size: var(--font-size-base);">⚠️ Submit Transport Issue or Incident</h2>
+            </div>
+            <div class="card-body">
+              <form onsubmit="handleSubmitIssue(event)">
+                <div class="form-group">
+                  <label class="form-label">Issue Category *</label>
+                  <select id="issue-category" class="form-select" required>
+                    <option value="overcrowding">Bus Overcrowding (Standing room only)</option>
+                    <option value="delay">Bus Delay / Late Arrival</option>
+                    <option value="missed_stop">Bus Missed Designated Boarding Stop</option>
+                    <option value="breakdown">Mechanical Breakdown / Punctured Tyre</option>
+                    <option value="safety">Safety, Rash Driving, or Hazard Concern</option>
+                    <option value="other">Other Transport Incident</option>
+                  </select>
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label">Related College Bus Route</label>
+                  <select id="issue-route" class="form-select">
+                    <option value="">-- General / Unknown Route --</option>
+                  </select>
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label">Incident Description *</label>
+                  <textarea id="issue-description" class="form-textarea" rows="4" required placeholder="Describe what happened, approximate time, and exact stop location..."></textarea>
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label">Priority</label>
+                  <select id="issue-priority" class="form-select">
+                    <option value="medium">Medium Priority</option>
+                    <option value="low">Low Priority</option>
+                    <option value="high">High Priority</option>
+                    <option value="urgent">Urgent</option>
+                  </select>
+                </div>
+
+                <button type="submit" id="submit-btn" class="btn btn-primary" style="width: 100%;">
+                  Submit Report to Transport Staff
+                </button>
+              </form>
+            </div>
+          </div>
+
+          <!-- Report History -->
+          <div class="card">
+            <div class="card-header">
+              <h2 style="font-size: var(--font-size-base);">📋 My Report History & Status</h2>
+            </div>
+            <div class="card-body" style="padding: 0;">
+              <div id="reports-history-list" style="display: flex; flex-direction: column;">
+                <div class="empty-state">
+                  <div class="spinner"></div> Loading reports...
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+      </main>
+
+    </div>
+
+  </div>
+
+  <!-- Scripts -->
+  <script src="assets/js/config.js"></script>
+  <script src="assets/js/theme.js"></script>
+  <script src="assets/js/auth.js"></script>
+  <script src="assets/js/api.js"></script>
+  <script src="assets/js/components.js"></script>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', async () => {
+      if (!Auth.guard()) return;
+
+      UI.renderAppShell('reports');
+      loadRoutesDropdown();
+      loadReportsHistory();
+    });
+
+    async function loadRoutesDropdown() {
+      try {
+        const res = await API.get('/routes');
+        const select = document.getElementById('issue-route');
+        (res.routes || []).forEach(r => {
+          const opt = document.createElement('option');
+          opt.value = r.id;
+          opt.textContent = `${r.route_number}: ${r.name}`;
+          select.appendChild(opt);
+        });
+      } catch (e) {}
+    }
+
+    async function loadReportsHistory() {
+      const container = document.getElementById('reports-history-list');
+      try {
+        const res = await API.get('/issues');
+        const issues = res.issues || [];
+
+        if (issues.length === 0) {
+          container.innerHTML = `
+            <div class="empty-state" style="padding: var(--space-8);">
+              <div class="empty-state-icon">📝</div>
+              <div class="empty-state-title">No reports submitted</div>
+              <p style="font-size: var(--font-size-xs);">Your submitted issue reports and administrative responses will appear here.</p>
+            </div>
+          `;
+          return;
+        }
+
+        container.innerHTML = issues.map(i => {
+          let badge = 'badge-info';
+          if (i.status === 'investigating') badge = 'badge-warning';
+          if (i.status === 'resolved') badge = 'badge-success';
+
+          return `
+            <div style="padding: var(--space-4); border-bottom: 1px solid var(--border-subtle);">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                <span class="badge ${badge}">${i.status}</span>
+                <span style="font-size: 11px; color: var(--text-muted);">${new Date(i.created_at).toLocaleString()}</span>
+              </div>
+              <div style="font-weight: 700; font-size: var(--font-size-sm); text-transform: capitalize; margin-bottom: 2px;">
+                ${i.category.replace('_', ' ')} • ${i.route_name || 'General Transportation'}
+              </div>
+              <p style="font-size: var(--font-size-xs); color: var(--text-main); margin-bottom: 6px;">
+                ${i.description}
+              </p>
+              ${i.resolution_notes ? `
+                <div style="background: var(--bg-surface-alt); padding: var(--space-2) var(--space-3); border-radius: var(--radius-sm); font-size: 11px; color: var(--color-success); border-left: 3px solid var(--color-success);">
+                  <strong>Transport Office Response:</strong> ${i.resolution_notes}
+                </div>
+              ` : '<div style="font-size: 11px; color: var(--text-muted);">Awaiting review by transport supervisor.</div>'}
+            </div>
+          `;
+        }).join('');
+
+      } catch (err) {
+        container.innerHTML = `<div class="alert alert-danger" style="margin: var(--space-4);">${err.message}</div>`;
+      }
+    }
+
+    async function handleSubmitIssue(e) {
+      e.preventDefault();
+      const category = document.getElementById('issue-category').value;
+      const route_id = document.getElementById('issue-route').value;
+      const description = document.getElementById('issue-description').value.trim();
+      const priority = document.getElementById('issue-priority').value;
+      const btn = document.getElementById('submit-btn');
+
+      btn.disabled = true;
+      btn.innerText = 'Submitting report...';
+
+      try {
+        await API.post('/issues', { category, route_id: route_id || null, description, priority });
+        showToast('Report submitted successfully! Staff will investigate.', 'success');
+        document.getElementById('issue-description').value = '';
+        btn.disabled = false;
+        btn.innerText = 'Submit Report to Transport Staff';
+        loadReportsHistory();
+      } catch (err) {
+        showToast(err.message, 'danger');
+        btn.disabled = false;
+        btn.innerText = 'Submit Report to Transport Staff';
+      }
+    }
+  </script>
+</body>
+</html>
+

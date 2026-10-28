@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Driver Dashboard - RouteReady Campus | MRECW</title>
+  <link rel="stylesheet" href="assets/css/design-system.css">
+  <link rel="stylesheet" href="assets/css/components.css">
+  <link rel="stylesheet" href="assets/css/pages.css">
+</head>
+<body>
+
+  <div class="app-shell">
+    
+    <div id="sidebar-placeholder"></div>
+
+    <div class="app-main">
+      
+      <!-- Topbar -->
+      <header class="topbar">
+        <div>
+          <h1 style="font-size: var(--font-size-lg);">Bus Driver Operations Portal</h1>
+        </div>
+        <div style="display: flex; align-items: center; gap: var(--space-3);">
+          <button class="theme-toggle-btn" onclick="toggleTheme()">🌙 Dark Mode</button>
+          <span class="badge badge-accent">Authorized Driver</span>
+        </div>
+      </header>
+
+      <main class="content-container">
+
+        <!-- Active Trip Controller Card -->
+        <div class="card" style="margin-bottom: var(--space-6); border-top: 4px solid var(--color-accent);">
+          <div class="card-header">
+            <div>
+              <div style="font-size: 11px; text-transform: uppercase; color: var(--text-muted); font-weight: 700;">Trip Execution Engine</div>
+              <h2 id="active-trip-title" style="font-size: var(--font-size-xl); margin-top: 2px;">
+                Checking assigned trip...
+              </h2>
+            </div>
+            <div id="trip-status-badge" class="badge badge-info">SCHEDULED</div>
+          </div>
+
+          <div class="card-body">
+            <!-- Trip Details Grid -->
+            <div id="trip-details-grid" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-4); margin-bottom: var(--space-6); text-align: center;">
+              <div style="background: var(--bg-surface-alt); padding: var(--space-3); border-radius: var(--radius-md);">
+                <div style="font-size: 10px; text-transform: uppercase; color: var(--text-muted);">Assigned Bus</div>
+                <div id="bus-reg-label" style="font-weight: 700; font-size: var(--font-size-base); color: var(--color-primary);">-</div>
+              </div>
+              <div style="background: var(--bg-surface-alt); padding: var(--space-3); border-radius: var(--radius-md);">
+                <div style="font-size: 10px; text-transform: uppercase; color: var(--text-muted);">Scheduled Departure</div>
+                <div id="trip-time-label" style="font-weight: 700; font-size: var(--font-size-base);">07:30 AM</div>
+              </div>
+              <div style="background: var(--bg-surface-alt); padding: var(--space-3); border-radius: var(--radius-md);">
+                <div style="font-size: 10px; text-transform: uppercase; color: var(--text-muted);">Destination</div>
+                <div style="font-weight: 700; font-size: var(--font-size-base); color: var(--color-accent);">MRECW Campus Gate</div>
+              </div>
+              <div style="background: var(--bg-surface-alt); padding: var(--space-3); border-radius: var(--radius-md);">
+                <div style="font-size: 10px; text-transform: uppercase; color: var(--text-muted);">Location Sharing</div>
+                <div id="gps-status-label" style="font-weight: 700; font-size: var(--font-size-base); color: var(--color-warning);">STANDBY</div>
+              </div>
+            </div>
+
+            <!-- Start / End Trip Actions -->
+            <div style="display: flex; gap: var(--space-4); justify-content: center; flex-wrap: wrap;">
+              <button onclick="startTrip()" id="start-trip-btn" class="btn btn-accent btn-lg" style="min-width: 200px;">
+                ▶️ Start Trip & Broadcast Location
+              </button>
+              <button onclick="endTrip()" id="end-trip-btn" class="btn btn-danger btn-lg" style="min-width: 200px;" disabled>
+                ⏹ Complete & End Trip
+              </button>
+            </div>
+
+            <div id="gps-notice" class="alert alert-info" style="margin-top: var(--space-4); font-size: var(--font-size-xs); display: none;">
+              📍 <strong>Location Broadcast Active:</strong> Real-time coordinates are automatically sent to college passengers while this trip remains active.
+            </div>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          
+          <!-- Live Occupancy Manager -->
+          <div class="card">
+            <div class="card-header">
+              <h3 style="font-size: var(--font-size-base);">👥 Verified Passenger Seat Count</h3>
+            </div>
+            <div class="card-body">
+              <p style="font-size: var(--font-size-xs); color: var(--text-muted); margin-bottom: var(--space-4);">
+                Keep student seat availability accurate by updating current passenger count at key boarding junctions.
+              </p>
+              
+              <form onsubmit="handleOccupancyUpdate(event)">
+                <div class="form-group">
+                  <label class="form-label" for="occupied-seats-input">Currently Occupied Seats</label>
+                  <input type="number" id="occupied-seats-input" class="form-input" min="0" max="60" required placeholder="e.g. 38">
+                  <span class="form-hint" id="capacity-hint">Total Capacity: 54 seats</span>
+                </div>
+                <button type="submit" class="btn btn-primary btn-sm" style="width: 100%;">
+                  Update Verified Occupancy
+                </button>
+              </form>
+            </div>
+          </div>
+
+          <!-- Quick Issue & Breakdown Report -->
+          <div class="card">
+            <div class="card-header">
+              <h3 style="font-size: var(--font-size-base);">⚠️ Report Breakdown or Operational Delay</h3>
+            </div>
+            <div class="card-body">
+              <p style="font-size: var(--font-size-xs); color: var(--text-muted); margin-bottom: var(--space-4);">
+                Instantly alerts the transport manager and generates a passenger service alert.
+              </p>
+              <form onsubmit="handleDriverReport(event)">
+                <div class="form-group">
+                  <label class="form-label">Issue Category</label>
+                  <select id="driver-issue-category" class="form-select">
+                    <option value="breakdown">Bus Mechanical Breakdown</option>
+                    <option value="delay">Severe Traffic Congestion / Delay</option>
+                    <option value="missed_stop">Road Blockage / Route Diversion</option>
+                    <option value="safety">Safety or Hazard Issue</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Operational Remarks</label>
+                  <input type="text" id="driver-issue-desc" class="form-input" required placeholder="e.g. Flat tyre near Suchitra circle, backup required...">
+                </div>
+                <button type="submit" class="btn btn-danger btn-sm" style="width: 100%;">
+                  Transmit Incident Alert
+                </button>
+              </form>
+            </div>
+          </div>
+
+        </div>
+
+      </main>
+
+    </div>
+
+  </div>
+
+  <!-- Scripts -->
+  <script src="assets/js/config.js"></script>
+  <script src="assets/js/theme.js"></script>
+  <script src="assets/js/auth.js"></script>
+  <script src="assets/js/api.js"></script>
+  <script src="assets/js/components.js"></script>
+
+  <script>
+    let assignedTrip = null;
+    let gpsWatchId = null;
+
+    document.addEventListener('DOMContentLoaded', async () => {
+      if (!Auth.guard(['driver', 'admin', 'transport_manager'])) return;
+
+      UI.renderAppShell('driver-trips');
+      await loadDriverTrip();
+    });
+
+    window.addEventListener('beforeunload', () => {
+      stopGPS();
+    });
+
+    async function loadDriverTrip() {
+      try {
+        const res = await API.get('/trips/driver/assigned');
+        const trips = res.trips || [];
+
+        if (trips.length === 0) {
+          document.getElementById('active-trip-title').innerText = 'No Trips Assigned Today';
+          document.getElementById('start-trip-btn').disabled = true;
+          return;
+        }
+
+        // Pick active or first scheduled trip
+        assignedTrip = trips.find(t => t.status === 'active') || trips[0];
+
+        const titleDiv = document.getElementById('active-trip-title');
+        const statusBadge = document.getElementById('trip-status-badge');
+        const busReg = document.getElementById('bus-reg-label');
+        const tripTime = document.getElementById('trip-time-label');
+        const startBtn = document.getElementById('start-trip-btn');
+        const endBtn = document.getElementById('end-trip-btn');
+
+        titleDiv.innerText = `${assignedTrip.route ? assignedTrip.route.route_number + ': ' + assignedTrip.route.name : 'College Route'}`;
+        statusBadge.innerText = assignedTrip.status.toUpperCase();
+        
+        if (assignedTrip.bus) {
+          busReg.innerText = `${assignedTrip.bus.bus_number} (${assignedTrip.bus.registration_number})`;
+          document.getElementById('capacity-hint').innerText = `Total Capacity: ${assignedTrip.bus.seat_capacity} seats`;
+        }
+        
+        tripTime.innerText = assignedTrip.scheduled_start_at || '07:30 AM';
+
+        if (assignedTrip.occupancy) {
+          document.getElementById('occupied-seats-input').value = assignedTrip.occupancy.occupied_seats;
+        }
+
+        if (assignedTrip.status === 'active') {
+          statusBadge.className = 'badge badge-success';
+          startBtn.disabled = true;
+          startBtn.innerText = 'Trip In Progress';
+          endBtn.disabled = false;
+          startGPS();
+        } else if (assignedTrip.status === 'completed') {
+          statusBadge.className = 'badge badge-info';
+          startBtn.disabled = true;
+          startBtn.innerText = 'Trip Finished';
+          endBtn.disabled = true;
+        }
+      } catch (err) {
+        showToast('Failed to load assigned trip: ' + err.message, 'danger');
+      }
+    }
+
+    async function startTrip() {
+      if (!assignedTrip) return;
+      if (!confirm('Start location broadcast and mark trip active for college passengers?')) return;
+
+      try {
+        const res = await API.post(`/trips/${assignedTrip.id}/start`);
+        showToast('Trip marked active. Real-time location sharing started.', 'success');
+        assignedTrip = res.trip;
+        document.getElementById('trip-status-badge').className = 'badge badge-success';
+        document.getElementById('trip-status-badge').innerText = 'ACTIVE';
+        document.getElementById('start-trip-btn').disabled = true;
+        document.getElementById('end-trip-btn').disabled = false;
+        startGPS();
+      } catch (err) {
+        showToast(err.message, 'danger');
+      }
+    }
+
+    async function endTrip() {
+      if (!assignedTrip) return;
+      if (!confirm('Complete this trip and end location broadcasting?')) return;
+
+      try {
+        const res = await API.post(`/trips/${assignedTrip.id}/end`);
+        showToast('Trip completed. Location sharing stopped.', 'info');
+        stopGPS();
+        document.getElementById('trip-status-badge').className = 'badge badge-info';
+        document.getElementById('trip-status-badge').innerText = 'COMPLETED';
+        document.getElementById('end-trip-btn').disabled = true;
+      } catch (err) {
+        showToast(err.message, 'danger');
+      }
+    }
+
+    function startGPS() {
+      const gpsLabel = document.getElementById('gps-status-label');
+      const gpsNotice = document.getElementById('gps-notice');
+
+      if (!navigator.geolocation) {
+        gpsLabel.innerText = 'NOT SUPPORTED';
+        return;
+      }
+
+      gpsLabel.innerText = 'TRANSMITTING GPS';
+      gpsLabel.style.color = 'var(--color-success)';
+      gpsNotice.style.display = 'block';
+
+      gpsWatchId = navigator.geolocation.watchPosition(
+        async (position) => {
+          try {
+            await API.post('/tracking/location', {
+              trip_id: assignedTrip.id,
+              latitude: position.coords.latitude,
+              longitude: position.coords.longitude,
+              speed_kmh: Math.round((position.coords.speed || 0) * 3.6)
+            });
+          } catch (e) {
+            console.warn('GPS upload failed:', e);
+          }
+        },
+        (error) => {
+          gpsLabel.innerText = 'GPS ERROR';
+          gpsLabel.style.color = 'var(--color-danger)';
+          console.warn('GPS Watch error:', error);
+        },
+        { enableHighAccuracy: true, maximumAge: 5000, timeout: 10000 }
+      );
+    }
+
+    function stopGPS() {
+      if (gpsWatchId !== null) {
+        navigator.geolocation.clearWatch(gpsWatchId);
+        gpsWatchId = null;
+      }
+      const gpsLabel = document.getElementById('gps-status-label');
+      const gpsNotice = document.getElementById('gps-notice');
+      if (gpsLabel) {
+        gpsLabel.innerText = 'STANDBY / OFF';
+        gpsLabel.style.color = 'var(--color-warning)';
+      }
+      if (gpsNotice) gpsNotice.style.display = 'none';
+    }
+
+    async function handleOccupancyUpdate(e) {
+      e.preventDefault();
+      if (!assignedTrip || !assignedTrip.bus_id) return;
+
+      const occupied = document.getElementById('occupied-seats-input').value;
+      try {
+        await API.post('/tracking/occupancy', {
+          bus_id: assignedTrip.bus_id,
+          trip_id: assignedTrip.id,
+          occupied_seats: occupied
+        });
+        showToast('Passenger occupancy count verified and updated!', 'success');
+      } catch (err) {
+        showToast(err.message, 'danger');
+      }
+    }
+
+    async function handleDriverReport(e) {
+      e.preventDefault();
+      const category = document.getElementById('driver-issue-category').value;
+      const desc = document.getElementById('driver-issue-desc').value.trim();
+
+      try {
+        await API.post('/issues', {
+          category,
+          description: desc,
+          route_id: assignedTrip ? assignedTrip.route_id : null,
+          bus_id: assignedTrip ? assignedTrip.bus_id : null,
+          priority: 'urgent'
+        });
+        showToast('Incident reported to Transport Manager!', 'warning');
+        document.getElementById('driver-issue-desc').value = '';
+      } catch (err) {
+        showToast(err.message, 'danger');
+      }
+    }
+  </script>
+</body>
+</html>
+

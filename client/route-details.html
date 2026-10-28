@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Route Details & Live Tracking - RouteReady Campus | MRECW</title>
+  <link rel="stylesheet" href="assets/css/design-system.css">
+  <link rel="stylesheet" href="assets/css/components.css">
+  <link rel="stylesheet" href="assets/css/pages.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+</head>
+<body>
+
+  <div id="navbar-placeholder"></div>
+
+  <main class="content-container">
+
+    <!-- Breadcrumb & Back -->
+    <div style="margin-bottom: var(--space-4);">
+      <a href="routes.html" class="nav-link" style="display: inline-flex; align-items: center; gap: var(--space-1);">
+        ← Back to All Routes
+      </a>
+    </div>
+
+    <!-- Route Header Hero -->
+    <div id="route-header" class="card" style="margin-bottom: var(--space-6);">
+      <div class="card-body">
+        <div class="spinner"></div> Loading route details...
+      </div>
+    </div>
+
+    <!-- Main Content: Split View (Left: Stop Sequence & Timetable; Right: Live Map Tracker) -->
+    <div class="grid-2" style="align-items: start;">
+      
+      <!-- Left Column: Ordered Stop Timeline & Bus Info -->
+      <div>
+        <!-- Bus & Seat Occupancy Card -->
+        <div class="card" style="margin-bottom: var(--space-6);">
+          <div class="card-header">
+            <h2 style="font-size: var(--font-size-base);">🚍 Assigned Bus & Verified Occupancy</h2>
+            <div id="bus-status-badge" class="badge badge-success">ACTIVE</div>
+          </div>
+          <div class="card-body" id="bus-occupancy-container">
+            <div style="font-size: var(--font-size-sm); color: var(--text-muted);">Loading bus information...</div>
+          </div>
+        </div>
+
+        <!-- Stop Sequence Timeline -->
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <h2 style="font-size: var(--font-size-base);">📍 Ordered Stop Sequence</h2>
+              <div style="font-size: var(--font-size-xs); color: var(--text-muted);">Scheduled departure offsets from route start</div>
+            </div>
+            <button onclick="downloadPDF()" class="btn btn-outline btn-sm">
+              📄 Download PDF Timetable
+            </button>
+          </div>
+          <div class="card-body">
+            <div id="timeline-container" class="timeline">
+              <div class="spinner"></div> Loading stops...
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right Column: Interactive Map & Live Tracking -->
+      <div class="card" style="position: sticky; top: calc(var(--topbar-height) + 20px);">
+        <div class="card-header">
+          <div>
+            <h2 style="font-size: var(--font-size-base);">🗺️ Live Interactive Route Map</h2>
+            <div style="font-size: var(--font-size-xs); color: var(--text-muted);">
+              Tracks bus along designated stops to MRECW Campus Gate
+            </div>
+          </div>
+          <div id="tracking-mode-badge" class="badge badge-simulated">DEMO SIMULATION</div>
+        </div>
+        <div class="card-body" style="padding: 0;">
+          <div id="route-map" class="map-panel" style="border: none; border-radius: 0; height: 540px;"></div>
+        </div>
+        <div class="card-footer" style="font-size: var(--font-size-xs); color: var(--text-muted); display: flex; justify-content: space-between;">
+          <div id="last-tracking-time">Last update: Fetching...</div>
+          <div>Mode: <strong id="tracking-mode-label">Simulated Demo</strong></div>
+        </div>
+      </div>
+
+    </div>
+
+  </main>
+
+  <!-- Scripts -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <script src="assets/js/config.js"></script>
+  <script src="assets/js/theme.js"></script>
+  <script src="assets/js/auth.js"></script>
+  <script src="assets/js/api.js"></script>
+  <script src="assets/js/components.js"></script>
+  <script src="assets/js/map-service.js"></script>
+  <script src="assets/js/pdf-service.js"></script>
+
+  <script>
+    let currentRoute = null;
+    let mapInstance = null;
+    let liveBusMarker = null;
+    let trackingTimer = null;
+
+    document.addEventListener('DOMContentLoaded', async () => {
+      UI.renderNavbar('routes');
+
+      const urlParams = new URLSearchParams(window.location.search);
+      const routeId = urlParams.get('id');
+
+      if (!routeId) {
+        window.location.href = 'routes.html';
+        return;
+      }
+
+      await loadRoute(routeId);
+      initMap();
+      pollLiveTracking();
+      trackingTimer = setInterval(pollLiveTracking, 3000);
+    });
+
+    window.addEventListener('beforeunload', () => {
+      if (trackingTimer) clearInterval(trackingTimer);
+    });
+
+    async function loadRoute(routeId) {
+      try {
+        const res = await API.get(`/routes/${routeId}`);
+        currentRoute = res.route;
+        renderHeader(currentRoute);
+        renderBusInfo(currentRoute);
+        renderTimeline(currentRoute);
+      } catch (err) {
+        document.getElementById('route-header').innerHTML = `<div class="alert alert-danger">Failed to load route: ${err.message}</div>`;
+      }
+    }
+
+    function renderHeader(r) {
+      document.getElementById('route-header').innerHTML = `
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: var(--space-4);">
+          <div>
+            <div style="display: flex; align-items: center; gap: var(--space-2); margin-bottom: var(--space-2);">
+              <span class="badge badge-accent" style="font-size: var(--font-size-sm);">${r.route_number}</span>
+              <span style="font-size: var(--font-size-2xl); font-weight: 800; color: var(--text-main);">${r.name}</span>
+              ${r.is_accessible ? '<span class="badge badge-success">♿ Accessible</span>' : ''}
+            </div>
+            <p style="color: var(--text-muted); font-size: var(--font-size-sm); margin-bottom: var(--space-3);">
+              ${r.description || 'College transit connection serving MRECW Campus'}
+            </p>
+            <div style="display: flex; gap: var(--space-4); font-size: var(--font-size-sm); flex-wrap: wrap;">
+              <span>🚩 <strong>Origin:</strong> ${r.origin_label} (${r.departure_time || '07:30 AM'})</span>
+              <span>🎓 <strong>Destination:</strong> ${r.destination_label} (${r.arrival_time || '08:15 AM'})</span>
+              <span>⏱ <strong>Scheduled Duration:</strong> ${r.estimated_duration_minutes} Minutes</span>
+              <span>📍 <strong>Total Stops:</strong> ${r.stops.length}</span>
+            </div>
+          </div>
+          <div style="display: flex; gap: var(--space-2);">
+            <button onclick="downloadPDF()" class="btn btn-primary">
+              📄 Download Timetable PDF
+            </button>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderBusInfo(r) {
+      const bus = r.assigned_bus;
+      const container = document.getElementById('bus-occupancy-container');
+
+      if (!bus) {
+        container.innerHTML = `<div style="color: var(--text-muted); font-size: var(--font-size-sm);">No bus currently scheduled for this route.</div>`;
+        return;
+      }
+
+      const available = bus.available_seats !== null ? bus.available_seats : 'Unknown';
+      const occupied = bus.verified_occupied_seats !== null ? bus.verified_occupied_seats : 'Unreported';
+
+      container.innerHTML = `
+        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-3); margin-bottom: var(--space-4); text-align: center;">
+          <div style="background: var(--bg-surface-alt); padding: var(--space-3); border-radius: var(--radius-md);">
+            <div style="font-size: 11px; text-transform: uppercase; color: var(--text-muted);">Bus Number</div>
+            <div style="font-size: var(--font-size-base); font-weight: 700; color: var(--color-primary);">${bus.bus_number}</div>
+            <div style="font-size: 11px; color: var(--text-muted);">${bus.registration_number}</div>
+          </div>
+          <div style="background: var(--bg-surface-alt); padding: var(--space-3); border-radius: var(--radius-md);">
+            <div style="font-size: 11px; text-transform: uppercase; color: var(--text-muted);">Max Capacity</div>
+            <div style="font-size: var(--font-size-base); font-weight: 700;">${bus.seat_capacity} Seats</div>
+            <div style="font-size: 11px; color: var(--text-muted);">Configured limit</div>
+          </div>
+          <div style="background: var(--color-accent-subtle); padding: var(--space-3); border-radius: var(--radius-md);">
+            <div style="font-size: 11px; text-transform: uppercase; color: var(--text-accent);">Available Seats</div>
+            <div style="font-size: var(--font-size-base); font-weight: 700; color: var(--color-accent);">${available}</div>
+            <div style="font-size: 11px; color: var(--text-muted);">Occupied: ${occupied}</div>
+          </div>
+        </div>
+        <div style="font-size: 11px; color: var(--text-muted); display: flex; justify-content: space-between;">
+          <span>Source: <strong>${bus.occupancy_source || 'driver_manual'}</strong></span>
+          <span>Last report: <strong>${bus.occupancy_freshness ? new Date(bus.occupancy_freshness).toLocaleTimeString() : 'Recent'}</strong></span>
+        </div>
+      `;
+    }
+
+    function renderTimeline(r) {
+      const container = document.getElementById('timeline-container');
+      const stops = r.stops || [];
+
+      if (stops.length === 0) {
+        container.innerHTML = `<div style="color: var(--text-muted);">No stops registered for this route.</div>`;
+        return;
+      }
+
+      container.innerHTML = stops.map((s, idx) => {
+        const isDestination = idx === stops.length - 1;
+        return `
+          <div class="timeline-item ${isDestination ? 'active' : ''}">
+            <div class="timeline-dot"></div>
+            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+              <div>
+                <div class="timeline-title">${s.name} ${isDestination ? '🎓 (Campus Gate)' : ''}</div>
+                <div style="font-size: var(--font-size-xs); color: var(--text-muted); margin-top: 2px;">
+                  ${s.address_label || s.description || 'Designated college bus boarding point'}
+                </div>
+              </div>
+              <div style="text-align: right;">
+                <div style="font-weight: 700; font-size: var(--font-size-xs); color: var(--color-accent);">
+                  +${s.scheduled_arrival_offset_minutes}m
+                </div>
+                ${s.is_accessible ? '<span style="font-size: 10px; color: var(--color-success);">♿ Accessible</span>' : ''}
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function initMap() {
+      mapInstance = MapService.createMap('route-map');
+      if (currentRoute && currentRoute.stops) {
+        MapService.renderRoute(mapInstance, currentRoute.stops);
+      }
+    }
+
+    async function pollLiveTracking() {
+      if (!currentRoute) return;
+
+      try {
+        const res = await API.get('/tracking/live');
+        const pos = (res.positions || []).find(p => p.route_id === currentRoute.id);
+        const lastTimeDiv = document.getElementById('last-tracking-time');
+        const modeBadge = document.getElementById('tracking-mode-badge');
+        const modeLabel = document.getElementById('tracking-mode-label');
+
+        if (res.mode === 'gps') {
+          modeBadge.className = 'badge badge-live';
+          modeBadge.innerText = 'LIVE GPS ACTIVE';
+          modeLabel.innerText = 'Real Driver GPS';
+        } else {
+          modeBadge.className = 'badge badge-simulated';
+          modeBadge.innerText = 'DEMO SIMULATION';
+          modeLabel.innerText = 'Simulated Movement';
+        }
+
+        if (pos && mapInstance) {
+          lastTimeDiv.innerText = `Last update: ${new Date(pos.recorded_at).toLocaleTimeString()}`;
+
+          const latLng = [pos.latitude, pos.longitude];
+          const icon = MapService.getBusIcon(pos.is_simulated);
+
+          if (!liveBusMarker) {
+            liveBusMarker = L.marker(latLng, { icon }).addTo(mapInstance);
+          } else {
+            liveBusMarker.setLatLng(latLng);
+            liveBusMarker.setIcon(icon);
+          }
+
+          liveBusMarker.bindPopup(`
+            <div style="min-width: 160px;">
+              <div style="font-size: 11px; font-weight:700; color: #F59E0B;">${pos.label}</div>
+              <div style="font-weight: 700; font-size: 14px;">${pos.bus_number}</div>
+              <div style="font-size: 12px; color: #64748B;">Speed: ~${pos.speed_kmh} km/h</div>
+              <div style="margin-top: 4px; font-size: 12px;">Next: <strong>${pos.next_stop_name}</strong></div>
+              ${pos.available_seats !== null ? `<div style="font-size: 12px; color: #10B981; font-weight:600;">Seats: ${pos.available_seats} / ${pos.seat_capacity}</div>` : ''}
+            </div>
+          `);
+        } else {
+          lastTimeDiv.innerText = 'Bus tracking: Standby or in bus bay';
+        }
+      } catch (err) {
+        console.warn('Live tracking poll failed:', err);
+      }
+    }
+
+    function downloadPDF() {
+      if (!currentRoute) return;
+      PDFService.downloadRouteTimetable(currentRoute);
+    }
+  </script>
+</body>
+</html>
+
